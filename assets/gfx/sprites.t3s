@@ -1,0 +1,27 @@
+--atlas -f rgba -z auto
+ic_bot_bg.png
+ic_btn_left_n.png
+ic_btn_right_n.png
+ic_btn_left_p.png
+ic_btn_right_p.png
+ic_btn_left_d.png
+ic_btn_right_d.png
+ic_btn_generic_small_n.png
+ic_btn_generic_small_p.png
+ic_btn_generic_generic_n.png
+ic_btn_generic_generic_p.png
+ic_btn_bot_1btn_n.png
+ic_btn_bot_1btn_p.png
+ic_btn_bot_2btn_n.png
+ic_btn_bot_2btn_p.png
+ic_top_bg_help0.png
+ic_top_bg.png
+waiticon_base.png
+waiticon0.png
+waiticon1.png
+waiticon2.png
+waiticon3.png
+waiticon4.png
+waiticon5.png
+waiticon6.png
+waiticon7.png
