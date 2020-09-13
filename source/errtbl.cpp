@@ -12,9 +12,9 @@ const char* AppErrTbl(int errorcode, u8 lang){
   sprintf(err,"An unknown error code was specified.\n\nPlease contact CyberYoshi64 " \
   "and describe him, what you did to make this error happen.\nHopefully, " \
   "he will fix it soon.");
-  if (errorcode < 10000000 || errorcode > 19999999){
-    sprintf(err,"Error summary:\n\nModule: %s \nLevel: %s \nSummary: %s \nDesc.: %s ",SysErr_ModuleStr(errorcode),SysErr_LevelStr(errorcode),SysErr_SummaryStr(errorcode),SysErr_DescStr(errorcode));
-  }
+  //if (errorcode < 10000000){
+  //  sprintf(err,"Error summary:\n\nModule: %s \nLevel: %s \nSummary: %s \nDesc.: %s ",SysErr_ModuleStr(errorcode),SysErr_LevelStr(errorcode),SysErr_SummaryStr(errorcode),SysErr_DescStr(errorcode));
+  //}
   if (errorcode == -1){
     sprintf(err,"An invalid error code was specified.\n\n" \
     "Please contact CyberYoshi64 and describe him, what you did to make this error happen.\n" \
@@ -28,6 +28,21 @@ const char* AppErrTbl(int errorcode, u8 lang){
   }
   if (errorcode == 10000002){
     sprintf(err,"The CTR \"CFGU\" (Configuration) service couldn't be initialized.");
+  }
+  if (errorcode == 10010000){
+    sprintf(err,"Invalid error code received from the download API.\n\nDownloadError return value: DL_ERROR_NONE");
+  }
+  if (errorcode == 10010001){
+    sprintf(err,"Failed to write file on the SD card.\n\nDownloadError return value: DL_ERROR_WRITEFILE");
+  }
+  if (errorcode == 10010002){
+    sprintf(err,"Failed to allocate buffer in memory.\n\nDownloadError return value: DL_ERROR_ALLOC");
+  }
+  if (errorcode == 10010003){
+    sprintf(err,"Invalid or no staus code received.\n\nDownloadError return value: DL_ERROR_STATUSCODE");
+  }
+  if (errorcode == 10010004){
+    sprintf(err,"Could not successfully communicate with GitHub.\n\nDownloadError return value: DL_ERROR_GIT\n\nIf you are CyberYoshi64, please consider changing the release type from \"Pre-release\" to \"Release\" or fix up the file names in the release.\nAre the file names \"SB3_Download_Station.*\" and are there a 3DSX and a CIA included?");
   }
   if (lang==CFG_LANGUAGE_DE) {
   sprintf(err,"Ein unbekannter Fehlercode wurde ausgelöst.\n\n" \
@@ -116,7 +131,7 @@ const char* LngpackStr(int lngid, int lang){
   } else if (lang == CFG_LANGUAGE_RU){
   }
   switch (lngid) {
-    case LNGTXT_TOPMENU: return "Top Menu";
+    case LNGTXT_TOPMENU: return "Main menu";
     case LNGTXT_EXIT: return "Press HOME to return to the HOME menu.";
     case LNGTXT_BACK: return "Back";
     case LNGTXT_NEXT: return "Next";
@@ -127,13 +142,14 @@ const char* LngpackStr(int lngid, int lang){
     
     case LNGTXT_PROCEED_ASK: return "Would you like to proceed?";
 
-    case LNGTXT_STORE_PRJ: return "Store project on SD card";
-    case LNGTXT_DOWNLOAD_PRJ: return "Download & Transfer demos to SmileBASIC";
+    case LNGTXT_STORE_PRJ: return "Backup a project";
+    case LNGTXT_DOWNLOAD_PRJ: return "Download menu";
+    case LNGTXT_UPDATE_APP: return "Check for updates";
 
     case LNGTXT_ABOUT: return "About this app";
     case LNGTXT_ABOUT_SQUAT: return "Original idea: the_squat1115";
     case LNGTXT_ABOUT_CY64: return "App programmer: CyberYoshi64";
-    case LNGTXT_ABOUT_SRCCODE: return "Certain pieces of the source code arer from:";
+    case LNGTXT_ABOUT_SRCCODE: return "Certain pieces of the source code are from:";
     case LNGTXT_ABOUT_SMILEBASIC: return "SmileBASIC is a trademark of SmileBoom Co.Ltd.";
     case LNGTXT_ABOUT_BUILD: return "Built with devkitPro.";
 

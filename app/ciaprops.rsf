@@ -7,7 +7,7 @@ RomFs:
   RootPath: "../romfs"
 
 TitleInfo:
-  Category                : SystemApplication
+  Category                : Application
   UniqueId                : 0x16901
 
 Option:

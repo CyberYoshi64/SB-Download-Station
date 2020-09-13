@@ -1,8 +1,7 @@
 #include "animation.hpp"
 #include "cia.hpp"
 #include "download.hpp"
-#include "errtbl.hpp"
-#include "keyboard.h"
+//#include "extract.hpp"
 #include "formatting.hpp"
 #include "gui.hpp"
 #include "inifile.h"
@@ -14,151 +13,366 @@
 #include <vector>
 #include <unistd.h>
 
-#define  USER_AGENT   "SmileBASIC Download Station - 0.0.1"
+#include <curl/curl.h>
+#include <curl/easy.h>
 
-CIniFile versionsFile("sdmc:/SBDownloadStation/data/currentver.ini");
+#define  USER_AGENT   "SmileBASIC Download Station - 0.0.2"
 
 static char* result_buf = NULL;
 static size_t result_sz = 0;
 static size_t result_written = 0;
 std::vector<std::string> _topText;
 std::string jsonName;
-std::string usernamePasswordCache;
+CIniFile versionsFile("sdmc:/SB-Download-Station/data/currentVersion.ini");
+std::string latestMenuReleaseCache = "";
+std::string latestMenuNightlyCache = "";
+std::string usernamePasswordCache = "";
+
+extern int errorcode;
 extern C3D_RenderTarget* top;
 extern C3D_RenderTarget* bottom;
-extern int errorcode;
-extern bool updateAvailable;
+extern bool updateAvailable[];
+extern bool updated3dsx;
+//extern int filesExtracted;
+//extern std::string extractingFile;
 
-bool showProgressBar;
-u32 size;
-u32 contentsize;
-int progressBarType=0;
-char progressBarMsg[2048];
-char downloadmsg[256];
+char progressBarMsg[128] = "";
+bool showProgressBar = false;
+int progressBarType = 0; // 0 = Download | 1 = Extract | 2 = Install
 
-extern u64 installOffset,installSize;
+// That are our extract Progressbar variables.
+//extern u64 extractSize, writeOffset;
+// That are our install Progressbar variables.
+extern u64 installSize, installOffset;
+bool continueNdsScan = true;
 
+curl_off_t downloadTotal = 1; //Dont initialize with 0 to avoid division by zero later
+curl_off_t downloadNow = 0;
 
-Result downloadToFile(const char* url, const char* outfile)
+static FILE *downfile = NULL;
+static size_t file_buffer_pos = 0;
+static size_t file_toCommit_size = 0;
+static char* g_buffers[2] = { NULL };
+static u8 g_index = 0;
+static Thread fsCommitThread;
+static LightEvent readyToCommit;
+static LightEvent waitCommit;
+static bool killThread = false;
+static bool writeError = false;
+#define FILE_ALLOC_SIZE 0x60000
+
+static int curlProgress(CURL *hnd,
+					curl_off_t dltotal, curl_off_t dlnow,
+					curl_off_t ultotal, curl_off_t ulnow)
 {
-    Result ret=0;
-    httpcContext context;
-    char *newurl=NULL;
-    u32 statuscode=0;
-    u32 readsize=0;
-    contentsize=1;
-    size=0;
-    u8 *buf, *lastbuf;
+	downloadTotal = dltotal;
+	downloadNow = dlnow;
 
-    do {
-        ret = httpcOpenContext(&context, HTTPC_METHOD_GET, url, 1);
-
-        // This disables SSL cert verification, so https:// will be usable
-        ret = httpcSetSSLOpt(&context, SSLCOPT_DisableVerify);
-
-        // Enable Keep-Alive connections
-        ret = httpcSetKeepAlive(&context, HTTPC_KEEPALIVE_ENABLED);
-
-        // Set a User-Agent header so websites can identify your application
-        ret = httpcAddRequestHeaderField(&context, "User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36");
-
-        // Tell the server we can support Keep-Alive connections.
-        // This will delay connection teardown momentarily (typically 5s)
-        // in case there is another request made to the same server.
-        ret = httpcAddRequestHeaderField(&context, "Connection", "Keep-Alive");
-
-        ret = httpcBeginRequest(&context);
-        if(ret!=0){
-        	showError("HTTP Request couldn't be started.");
-            httpcCloseContext(&context);
-            if(newurl!=NULL) free(newurl);
-            return ret;
-        }
-
-        ret = httpcGetResponseStatusCode(&context, &statuscode);
-        if(ret!=0){
-        	sprintf(downloadmsg,"Error summary (%lx):\n\nModule: %s \nLevel: %s \nSummary: %s \nDesc.: %s ",ret,SysErr_ModuleStr(ret),SysErr_LevelStr(ret),SysErr_SummaryStr(ret),SysErr_DescStr(ret));
-        	showError(downloadmsg);
-            httpcCloseContext(&context);
-            if(newurl!=NULL) free(newurl);
-            return ret;
-        }
-
-        if ((statuscode >= 301 && statuscode <= 303) || (statuscode >= 307 && statuscode <= 308)) {
-            if(newurl==NULL) newurl = (char*)malloc(0x1000); // One 4K page for new URL
-            if (newurl==NULL){
-            	showError("Relocation of URL has not succeeded");
-                httpcCloseContext(&context);
-                return -1;
-            }
-            ret = httpcGetResponseHeader(&context, "Location", newurl, 0x1000);
-            url = newurl; // Change pointer to the url that we just learned
-            
-            httpcCloseContext(&context); // Close this context before we try the next
-        }
-    } while ((statuscode >= 301 && statuscode <= 303) || (statuscode >= 307 && statuscode <= 308));
-
-    if(statuscode!=200 && statuscode!=203){
-        sprintf(downloadmsg,"HTTP response code %ld received. HTTP 200 was expected.",statuscode);
-        showError(downloadmsg);
-        httpcCloseContext(&context);
-        if(newurl!=NULL) free(newurl);
-        return -2;
-    }
-
-    // This relies on an optional Content-Length header and may be 0
-    ret=httpcGetDownloadSizeState(&context, NULL, &contentsize);
-    if(ret!=0){
-    	showError("Couldn't receive Content-Length from server.");
-        httpcCloseContext(&context);
-        if(newurl!=NULL) free(newurl);
-        return ret;
-    }
-
-    // Start with a single page buffer
-    buf = (u8*)malloc(0x1000);
-    if(buf==NULL){
-    	showError("Could not malloc( 4096 ) the buffer.");
-        httpcCloseContext(&context);
-        if(newurl!=NULL) free(newurl);
-        return -1;
-    }
-
-    do {
-        // This download loop resizes the buffer as data is read.
-        ret = httpcDownloadData(&context, buf+size, 0x1000, &readsize);
-        size += readsize; 
-        if (ret == (s32)HTTPC_RESULTCODE_DOWNLOADPENDING){
-            lastbuf = buf; // Save the old pointer, in case realloc() fails.
-            buf = (u8*)realloc(buf, size + 0x1000);
-            if(buf==NULL){
-            	showError("Could not reallocate the buffer with the new size.");
-                httpcCloseContext(&context);
-                free(lastbuf);
-                if(newurl!=NULL) free(newurl);
-                return -1;
-            }
-        }
-    } while (ret == (s32)HTTPC_RESULTCODE_DOWNLOADPENDING); 
-
-    if(ret!=0){
-    	showError("Expected a different return value from httpcDownloadData().");
-        httpcCloseContext(&context);
-        if(newurl!=NULL) free(newurl);
-        free(buf);
-        return -1;
-    }
-
-    FILE* out = fopen(outfile, "wb");
-    fwrite(buf, 1, size, out);
-    fclose(out);
-
-    httpcCloseContext(&context);
-    free(buf);
-    if (newurl!=NULL) free(newurl);
-
-    return 0;
+	return 0;
 }
+
+bool filecommit() {
+	if (!downfile) return false;
+	fseek(downfile, 0, SEEK_END);
+	u32 byteswritten = fwrite(g_buffers[!g_index], 1, file_toCommit_size, downfile);
+	if (byteswritten != file_toCommit_size) return false;
+	file_toCommit_size = 0;
+	return true;
+}
+
+static void commitToFileThreadFunc(void* args) {
+	LightEvent_Signal(&waitCommit);
+	while (true) {
+		LightEvent_Wait(&readyToCommit);
+		LightEvent_Clear(&readyToCommit);
+		if (killThread) threadExit(0);
+		writeError = !filecommit();
+		LightEvent_Signal(&waitCommit);
+	}
+}
+
+static size_t file_handle_data(char *ptr, size_t size, size_t nmemb, void *userdata) {
+	(void)userdata;
+	const size_t bsz = size * nmemb;
+	size_t tofill = 0;
+	if (writeError) return 0;
+	if (!g_buffers[g_index]) {
+
+		LightEvent_Init(&waitCommit, RESET_STICKY);
+		LightEvent_Init(&readyToCommit, RESET_STICKY);
+
+		s32 prio = 0;
+		svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
+		fsCommitThread = threadCreate(commitToFileThreadFunc, NULL, 0x1000, prio - 1, -2, true);
+
+		g_buffers[0] = (char*)memalign(0x1000, FILE_ALLOC_SIZE);
+		g_buffers[1] = (char*)memalign(0x1000, FILE_ALLOC_SIZE);
+
+		if (!fsCommitThread || !g_buffers[0] || !g_buffers[1]) return 0;
+	}
+	if (file_buffer_pos + bsz >= FILE_ALLOC_SIZE) {
+		tofill = FILE_ALLOC_SIZE - file_buffer_pos;
+		memcpy(g_buffers[g_index] + file_buffer_pos, ptr, tofill);
+		
+		LightEvent_Wait(&waitCommit);
+		LightEvent_Clear(&waitCommit);
+		file_toCommit_size = file_buffer_pos + tofill;
+		file_buffer_pos = 0;
+		svcFlushProcessDataCache(CUR_PROCESS_HANDLE, (u32)g_buffers[g_index], file_toCommit_size);
+		g_index = !g_index;
+		LightEvent_Signal(&readyToCommit);
+	}
+	memcpy(g_buffers[g_index] + file_buffer_pos, ptr + tofill, bsz - tofill);
+	file_buffer_pos += bsz - tofill;
+	return bsz;
+}
+
+Result downloadToFile(std::string url, std::string path) {
+
+	Result retcode = 0;
+	downloadTotal = 1;
+	downloadNow = 0;
+	int res;
+	CURL *hnd;
+	CURLcode cres;
+
+	printf("Downloading from:\n%s\nto:\n%s\n", url.c_str(), path.c_str());
+	const char* filepath = path.c_str();
+
+	void *socubuf = memalign(0x1000, 0x100000);
+	if (!socubuf) {
+		retcode = -1;
+		goto exit;
+	}
+	
+	res = socInit((u32*)socubuf, 0x100000);
+	if (R_FAILED(res)) {
+		retcode = res;
+		goto exit;
+	}
+
+	makeDirs(strdup(filepath));
+	downfile = fopen(filepath, "wb");
+	if (!downfile) {
+		retcode = -2;
+		goto exit;
+	}
+
+	hnd = curl_easy_init();
+	curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, FILE_ALLOC_SIZE);
+	curl_easy_setopt(hnd, CURLOPT_URL, url.c_str());
+	curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 0L);
+	curl_easy_setopt(hnd, CURLOPT_USERAGENT, USER_AGENT);
+	curl_easy_setopt(hnd, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(hnd, CURLOPT_FAILONERROR, 1L);
+	curl_easy_setopt(hnd, CURLOPT_ACCEPT_ENCODING, "gzip");
+	curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
+	curl_easy_setopt(hnd, CURLOPT_XFERINFOFUNCTION, curlProgress);
+	curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
+	curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, file_handle_data);
+	curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 0L);
+	curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1L);
+	curl_easy_setopt(hnd, CURLOPT_STDERR, stdout);
+
+	cres = curl_easy_perform(hnd);
+	curl_easy_cleanup(hnd);
+	
+	if (cres != CURLE_OK) {
+		retcode = -cres;
+		goto exit;
+	}
+
+	LightEvent_Wait(&waitCommit);
+	LightEvent_Clear(&waitCommit);
+
+	file_toCommit_size = file_buffer_pos;
+	svcFlushProcessDataCache(CUR_PROCESS_HANDLE, (u32)g_buffers[g_index], file_toCommit_size);
+	g_index = !g_index;
+	if (!filecommit()) {
+		retcode = -3;
+		goto exit;
+	}
+	fflush(downfile);
+	
+exit:
+	if (fsCommitThread) {
+		killThread = true;
+		LightEvent_Signal(&readyToCommit);
+		threadJoin(fsCommitThread, U64_MAX);
+		killThread = false;
+		fsCommitThread = NULL;
+	}
+
+	socExit();
+	
+	if (socubuf) {
+		free(socubuf);
+	}
+	if (downfile) {
+		fclose(downfile);
+		downfile = NULL;
+	}
+	if (g_buffers[0]) {
+		free(g_buffers[0]);
+		g_buffers[0] = NULL;
+	}
+	if (g_buffers[1]) {
+		free(g_buffers[1]);
+		g_buffers[1] = NULL;
+	}
+	g_index = 0;
+	file_buffer_pos = 0;
+	file_toCommit_size = 0;
+	writeError = false;
+	
+	return retcode;
+}
+
+// following function is from
+// https://github.com/angelsl/libctrfgh/blob/master/curl_test/src/main.c
+static size_t handle_data(char* ptr, size_t size, size_t nmemb, void* userdata)
+{
+	(void) userdata;
+	const size_t bsz = size*nmemb;
+
+	if (result_sz == 0 || !result_buf)
+	{
+		result_sz = 0x1000;
+		result_buf = (char*)malloc(result_sz);
+	}
+
+	bool need_realloc = false;
+	while (result_written + bsz > result_sz)
+	{
+		result_sz <<= 1;
+		need_realloc = true;
+	}
+
+	if (need_realloc)
+	{
+		char *new_buf = (char*)realloc(result_buf, result_sz);
+		if (!new_buf)
+		{
+			return 0;
+		}
+		result_buf = new_buf;
+	}
+
+	if (!result_buf)
+	{
+		return 0;
+	}
+
+	memcpy(result_buf + result_written, ptr, bsz);
+	result_written += bsz;
+	return bsz;
+}
+
+static Result setupContext(CURL *hnd, const char * url) {
+	downloadTotal = 1;
+	downloadNow = 0;
+	curl_easy_setopt(hnd, CURLOPT_XFERINFOFUNCTION, curlProgress);
+
+	curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 102400L);
+	curl_easy_setopt(hnd, CURLOPT_URL, url);
+	curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 0L);
+	curl_easy_setopt(hnd, CURLOPT_USERAGENT, USER_AGENT);
+	curl_easy_setopt(hnd, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
+	curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
+	curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, handle_data);
+	curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 0L);
+	curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1L);
+	curl_easy_setopt(hnd, CURLOPT_STDERR, stdout);
+	if(usernamePasswordCache != "")	curl_easy_setopt(hnd, CURLOPT_USERPWD, usernamePasswordCache.c_str());
+
+	return 0;
+}
+
+Result downloadFromRelease(std::string url, std::string asset, std::string path) {
+	Result ret = 0;
+	void *socubuf = memalign(0x1000, 0x100000);
+	if(!socubuf) {
+		return -1;
+	}
+
+	ret = socInit((u32*)socubuf, 0x100000);
+	if(R_FAILED(ret)) {
+		free(socubuf);
+		return ret;
+	}
+
+	std::regex parseUrl("github\\.com\\/(.+)\\/(.+)");
+	std::smatch result;
+	regex_search(url, result, parseUrl);
+
+	std::string repoOwner = result[1].str(), repoName = result[2].str();
+
+	std::stringstream apiurlStream;
+	apiurlStream << "https://api.github.com/repos/" << repoOwner << "/" << repoName << "/releases/latest";
+	std::string apiurl = apiurlStream.str();
+
+	printf("Downloading latest release from repo:\n%s\nby:\n%s\n", repoName.c_str(), repoOwner.c_str());
+	printf("Crafted API url:\n%s\n", apiurl.c_str());
+
+	CURL *hnd = curl_easy_init();
+	ret = setupContext(hnd, apiurl.c_str());
+	if(ret != 0) {
+		socExit();
+		free(result_buf);
+		free(socubuf);
+		result_buf = NULL;
+		result_sz = 0;
+		result_written = 0;
+		return ret;
+	}
+
+	CURLcode cres = curl_easy_perform(hnd);
+	curl_easy_cleanup(hnd);
+	char* newbuf = (char*)realloc(result_buf, result_written + 1);
+	result_buf = newbuf;
+	result_buf[result_written] = 0; //nullbyte to end it as a proper C style string
+
+	if(cres != CURLE_OK) {
+		printf("Error in:\ncurl\n");
+		socExit();
+		free(result_buf);
+		free(socubuf);
+		result_buf = NULL;
+		result_sz = 0;
+		result_written = 0;
+		return -1;
+	}
+
+	printf("Looking for asset with name matching:\n%s\n", asset.c_str());
+	std::string assetUrl;
+	json parsedAPI = json::parse(result_buf);
+	if(parsedAPI["assets"].is_array()) {
+		for (auto jsonAsset : parsedAPI["assets"]) {
+			if(jsonAsset.is_object() && jsonAsset["name"].is_string() && jsonAsset["browser_download_url"].is_string()) {
+				std::string assetName = jsonAsset["name"];
+				if(matchPattern(asset, assetName)) {
+					assetUrl = jsonAsset["browser_download_url"];
+					break;
+				}
+			}
+		}
+	}
+	socExit();
+	free(result_buf);
+	free(socubuf);
+	result_buf = NULL;
+	result_sz = 0;
+	result_written = 0;
+
+	if(assetUrl.empty())
+		ret = DL_ERROR_GIT;
+	else
+		ret = downloadToFile(assetUrl, path);
+
+	return ret;
+}
+
 /**
  * Check Wi-Fi status.
  * @return True if Wi-Fi is connected; false if not.
@@ -175,16 +389,302 @@ bool checkWifiStatus(void) {
 	return res;
 }
 
-void downloadFailed(void) {
-	errorcode=10000007;
+void downloadFailed(Result res) {
+	errorcode=10010000+res;
 }
 
 void notConnectedMsg(void) {
-	errorcode=10000008;
+	showError("Please connect to Wi-Fi");
 }
 
 void doneMsg(void) {
-	errorcode=1;
+	showError("Done!");
+}
+
+std::string getLatestRelease(std::string repo, std::string item, bool retrying) {
+	Result ret = 0;
+	void *socubuf = memalign(0x1000, 0x100000);
+	if(!socubuf) {
+		return "";
+	}
+
+	ret = socInit((u32*)socubuf, 0x100000);
+	if(R_FAILED(ret)) {
+		free(socubuf);
+		return "";
+	}
+
+	std::stringstream apiurlStream;
+	apiurlStream << "https://api.github.com/repos/" << repo << "/releases/latest";
+	std::string apiurl = apiurlStream.str();
+
+	CURL *hnd = curl_easy_init();
+	ret = setupContext(hnd, apiurl.c_str());
+	if(ret != 0) {
+		socExit();
+		free(result_buf);
+		free(socubuf);
+		result_buf = NULL;
+		result_sz = 0;
+		result_written = 0;
+		return "";
+	}
+
+	CURLcode cres = curl_easy_perform(hnd);
+	int httpCode;
+	curl_easy_getinfo(hnd, CURLINFO_RESPONSE_CODE, &httpCode);
+	curl_easy_cleanup(hnd);
+	char* newbuf = (char*)realloc(result_buf, result_written + 1);
+	result_buf = newbuf;
+	result_buf[result_written] = 0; //nullbyte to end it as a proper C style string
+
+	if(httpCode == 401 || httpCode == 403) {
+		bool save = promtUsernamePassword();
+		if(save)	saveUsernamePassword();
+		socExit();
+		free(result_buf);
+		free(socubuf);
+		result_buf = NULL;
+		result_sz = 0;
+		result_written = 0;
+		if(usernamePasswordCache == "" || retrying) {
+			usernamePasswordCache = "";
+			return "API";
+		} else {
+			return getLatestRelease(repo, item, true);
+		}
+	}
+
+	if(cres != CURLE_OK) {
+		socExit();
+		free(result_buf);
+		free(socubuf);
+		result_buf = NULL;
+		result_sz = 0;
+		result_written = 0;
+		return "";
+	}
+
+
+	std::string jsonItem;
+	json parsedAPI = json::parse(result_buf);
+	if(parsedAPI[item].is_string()) {
+		jsonItem = parsedAPI[item];
+	}
+
+	socExit();
+	free(result_buf);
+	free(socubuf);
+	result_buf = NULL;
+	result_sz = 0;
+	result_written = 0;
+
+	return jsonItem;
+}
+
+std::vector<std::string> getRecentCommits(std::string repo, std::string item, bool retrying) {
+	std::vector<std::string> emptyVector;
+	Result ret = 0;
+	void *socubuf = memalign(0x1000, 0x100000);
+	if(!socubuf) {
+		return emptyVector;
+	}
+
+	ret = socInit((u32*)socubuf, 0x100000);
+	if(R_FAILED(ret)) {
+		free(socubuf);
+		return emptyVector;
+	}
+
+	std::stringstream apiurlStream;
+	apiurlStream << "https://api.github.com/repos/" << repo << "/commits";
+	std::string apiurl = apiurlStream.str();
+
+	CURL *hnd = curl_easy_init();
+	ret = setupContext(hnd, apiurl.c_str());
+	if(ret != 0) {
+		socExit();
+		free(result_buf);
+		free(socubuf);
+		result_buf = NULL;
+		result_sz = 0;
+		result_written = 0;
+		return emptyVector;
+	}
+
+	CURLcode cres = curl_easy_perform(hnd);
+	int httpCode;
+	curl_easy_getinfo(hnd, CURLINFO_RESPONSE_CODE, &httpCode);
+	curl_easy_cleanup(hnd);
+	char* newbuf = (char*)realloc(result_buf, result_written + 1);
+	result_buf = newbuf;
+	result_buf[result_written] = 0; //nullbyte to end it as a proper C style string
+
+	if(httpCode == 401 || httpCode == 403) {
+		bool save = promtUsernamePassword();
+		if(save)	saveUsernamePassword();
+		socExit();
+		free(result_buf);
+		free(socubuf);
+		result_buf = NULL;
+		result_sz = 0;
+		result_written = 0;
+		if(usernamePasswordCache == "" || retrying) {
+			usernamePasswordCache = "";
+			return {"API"};
+		} else {
+			return getRecentCommits(repo, item, true);
+		}
+	}
+
+	if(cres != CURLE_OK) {
+		printf("Error in:\ncurl\n");
+		socExit();
+		free(result_buf);
+		free(socubuf);
+		result_buf = NULL;
+		result_sz = 0;
+		result_written = 0;
+		return emptyVector;
+	}
+
+	std::vector<std::string> jsonItems;
+	json parsedAPI = json::parse(result_buf);
+	for(uint i=0;i<parsedAPI.size();i++) {
+		if(parsedAPI[i][item].is_string()) {
+			jsonItems.push_back(parsedAPI[i][item]);
+		}
+	}
+
+	socExit();
+	free(result_buf);
+	free(socubuf);
+	result_buf = NULL;
+	result_sz = 0;
+	result_written = 0;
+
+	return jsonItems;
+}
+
+std::vector<std::string> getRecentCommitsArray(std::string repo, std::string array, std::string item, bool retrying) {
+	std::vector<std::string> emptyVector;
+	Result ret = 0;
+	void *socubuf = memalign(0x1000, 0x100000);
+	if(!socubuf) {
+		return emptyVector;
+	}
+
+	ret = socInit((u32*)socubuf, 0x100000);
+	if(R_FAILED(ret)) {
+		free(socubuf);
+		return emptyVector;
+	}
+
+	std::stringstream apiurlStream;
+	apiurlStream << "https://api.github.com/repos/" << repo << "/commits";
+	std::string apiurl = apiurlStream.str();
+
+	CURL *hnd = curl_easy_init();
+	ret = setupContext(hnd, apiurl.c_str());
+	if(ret != 0) {
+		socExit();
+		free(result_buf);
+		free(socubuf);
+		result_buf = NULL;
+		result_sz = 0;
+		result_written = 0;
+		return emptyVector;
+	}
+
+	CURLcode cres = curl_easy_perform(hnd);
+	int httpCode;
+	curl_easy_getinfo(hnd, CURLINFO_RESPONSE_CODE, &httpCode);
+	curl_easy_cleanup(hnd);
+	char* newbuf = (char*)realloc(result_buf, result_written + 1);
+	result_buf = newbuf;
+	result_buf[result_written] = 0; //nullbyte to end it as a proper C style string
+
+	if(httpCode == 401 || httpCode == 403) {
+		bool save = promtUsernamePassword();
+		if(save)	saveUsernamePassword();
+		socExit();
+		free(result_buf);
+		free(socubuf);
+		result_buf = NULL;
+		result_sz = 0;
+		result_written = 0;
+		if(usernamePasswordCache == "" || retrying) {
+			usernamePasswordCache = "";
+			return {"API"};
+		} else {
+			return getRecentCommitsArray(repo, array, item, true);
+		}
+	}
+
+	if(cres != CURLE_OK) {
+		printf("Error in:\ncurl\n");
+		socExit();
+		free(result_buf);
+		free(socubuf);
+		result_buf = NULL;
+		result_sz = 0;
+		result_written = 0;
+		return emptyVector;
+	}
+
+	std::vector<std::string> jsonItems;
+	json parsedAPI = json::parse(result_buf);
+	for(uint i=0;i<parsedAPI.size();i++) {
+		if(parsedAPI[i][array][item].is_string()) {
+			jsonItems.push_back(parsedAPI[i][array][item]);
+		}
+	}
+
+	socExit();
+	free(result_buf);
+	free(socubuf);
+	result_buf = NULL;
+	result_sz = 0;
+	result_written = 0;
+
+	return jsonItems;
+}
+
+bool showReleaseInfo(std::string repo, bool showExitText) {
+	jsonName = getLatestRelease(repo, "name");
+	std::string jsonBody = getLatestRelease(repo, "body");
+
+	setMessageText(jsonBody);
+	int textPosition = 0;
+	bool redrawText = true;
+
+	while(1) {
+		if(redrawText) {
+			drawMessageText(textPosition, showExitText);
+			redrawText = false;
+		}
+
+		gspWaitForVBlank();
+		hidScanInput();
+		const u32 hDown = hidKeysDown();
+		const u32 hHeld = hidKeysDownRepeat();
+
+		if(hDown & KEY_A) {
+			return true;
+		} else if(hDown & KEY_B || hDown & KEY_Y || hDown & KEY_TOUCH) {
+			return false;
+		} else if(hHeld & KEY_UP) {
+			if(textPosition > 0) {
+				textPosition--;
+				redrawText = true;
+			}
+		} else if(hHeld & KEY_DOWN) {
+			if(textPosition < (int)(_topText.size() - 10)) {
+				textPosition++;
+				redrawText = true;
+			}
+		}
+	}
 }
 
 void setMessageText(const std::string &text) {
@@ -227,7 +727,7 @@ void setMessageText(const std::string &text) {
 void drawMessageText(int position, bool showExitText) {
 	Gui::clearTextBufs();
 	C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-	C2D_TargetClear(bottom, 0xFF403020);
+	C2D_TargetClear(bottom, 0xff804010);
 	set_screen(bottom);
 	Draw_Text(18, 24, .7, BLACK, jsonName.c_str());
 	for (int i = 0; i < (int)_topText.size() && i < (showExitText ? 9 : 10); i++) {
@@ -242,30 +742,36 @@ void drawMessageText(int position, bool showExitText) {
 void displayProgressBar() {
 	char str[256];
 	while(showProgressBar) {
-		if (contentsize < 1.0f) {
-			contentsize = 1.0f;
+		if (downloadTotal < 1.0f) {
+			downloadTotal = 1.0f;
 		}
-		if (contentsize < size) {
-			contentsize = size;
+		if (downloadTotal < downloadNow) {
+			downloadTotal = downloadNow;
 		}
 
 		// Downloading.
 		if (progressBarType == 0){
 			snprintf(str, sizeof(str), "%s / %s (%.2f%%)",
-					formatBytes(size).c_str(),
-					formatBytes(contentsize).c_str(),
-					((float)size/(float)contentsize) * 100.0f);
+					formatBytes(downloadNow).c_str(),
+					formatBytes(downloadTotal).c_str(),
+					((float)downloadNow/(float)downloadTotal) * 100.0f);
 					// Extracting.
-		} else if (progressBarType == 1) {
+		} else if (progressBarType == 2) {
+			//snprintf(str, sizeof(str), "%s / %s (%.2f%%)",
+			//		formatBytes(writeOffset).c_str(),
+			//		formatBytes(extractSize).c_str(),
+			//		((float)writeOffset/(float)extractSize) * 100.0f);
+			// Installing.
+		} else if (progressBarType == 1){
 			snprintf(str, sizeof(str), "%s / %s (%.2f%%)",
 					formatBytes(installOffset).c_str(),
 					formatBytes(installSize).c_str(),
-					((float)installOffset/((float)installSize + 0.0000001f)) * 100.0f);
+					((float)installOffset/(float)installSize) * 100.0f);
 		};
 
 		Gui::clearTextBufs();
 		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-		C2D_TargetClear(bottom, 0xFF806030);
+		C2D_TargetClear(bottom, 0xff905020);
 		set_screen(bottom);
 		Draw_Text_Center(160, 40, 0.60f, BLACK, progressBarMsg);
 		// Only display this by downloading.
@@ -273,28 +779,28 @@ void displayProgressBar() {
 			Draw_Text_Center(160, 100, 0.6f, BLACK, str);
 			// Outline of progressbar.
 			Draw_Rect(60, 169, 202, 30, BLACK);
-			Animation::DrawProgressBar(size, contentsize);
+			Animation::DrawProgressBar(downloadNow, downloadTotal);
 		}
-		// Only Display this by extracting.
+		// Only display this by installing.
 		if (progressBarType == 1) {
-			// Text.
 			Draw_Text_Center(160, 100, 0.4f, BLACK, str);
 			// Outline of progressbar.
 			Draw_Rect(60, 169, 202, 30, BLACK);
 			Animation::DrawProgressBar((float)installOffset, (float)installSize);
 		}
 		C3D_FrameEnd(0);
+		//wide3DSwap();
 		gspWaitForVBlank();
 	}
 }
 
 bool promtUsernamePassword(void) {
-	Msg::DisplayMsg("The GitHub API rate limit has been\n"
-					 "exceeded for your IP. You can regain\n"
-					 "access by signing in to a GitHub account,\n"
-					 "or waiting for a bit.\n"
-					 "(or press  but some things won't work)\n\n\n\n\n\n\n\n"
-					 " Cancel    Authenticate");
+	// Msg::DisplayMsg("The GitHub API rate limit has been\n"
+	//				 "exceeded for your IP. You can regain\n"
+	//				 "access by signing in to a GitHub account,\n"
+	//				 "or waiting for a bit.\n"
+	//				 "(or press  but some things won't work)\n\n\n\n\n\n\n\n"
+	//				 " Cancel    Authenticate");
 
 	C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
 	set_screen(bottom);
@@ -334,7 +840,7 @@ bool promtUsernamePassword(void) {
 				Draw_Text(100, 100, 0.45f, BLACK, username.c_str());
 				C3D_FrameEnd(0);
 			} else if(touch.px >= 100 && touch.px <= 200 && touch.py >= 120 && touch.py <= 134) {
-				password = keyboardInput("Password","",64,1);
+				password = keyboardInput("Password","");
 				C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
 				set_screen(bottom);
 				Draw_Rect(100, 120, 100, 14, GRAY);
@@ -352,57 +858,79 @@ bool promtUsernamePassword(void) {
 }
 
 void loadUsernamePassword(void) {
-	std::ifstream in("sdmc:/SBDownloadStation/data/usernamePassword");
+	std::ifstream in("sdmc:/SB-Download-Station/data/usernamePassword");
 	if(in.good())	in >> usernamePasswordCache;
 	in.close();
 }
 
 void saveUsernamePassword() {
-	std::ofstream out("sdmc:/SBDownloadStation/data/usernamePassword");
+	std::ofstream out("sdmc:/SB-Download-Station/data/usernamePassword");
 	if(out.good())	out << usernamePasswordCache;
 	out.close();
 }
 
+std::string latestMenuRelease(void) {
+	if(latestMenuReleaseCache == "") {
+		std::string apiInfo = getLatestRelease("CyberYoshi64/SB-Download-Station", "tag_name");
+		if(apiInfo != "API") {
+			latestMenuReleaseCache = apiInfo;
+		}
+	}
+	return latestMenuReleaseCache;
+}
+
 void saveUpdateData(void) {
-	versionsFile.SaveIniFile("sdmc:/SBDownloadStation/data/currentver.ini");
+	versionsFile.SaveIniFile("sdmc:/SB-Download-Station/data/currentVersion.ini");
+}
+
+std::string getInstalledVersion(std::string component) {
+	return versionsFile.GetString(component, "VERSION", "");
+}
+
+void setInstalledVersion(std::string component, std::string version) {
+	versionsFile.SetString(component, "VERSION", version);
+}
+
+void checkForUpdates() {
+	// First remove the old versions file
+	unlink("sdmc:/SB-Download-Station/data/currentVersion.ini");
+
+	std::string menuVersion = getInstalledVersion("SB3-DS");
+
+	updateAvailable[0] = menuVersion != latestMenuRelease();
 }
 
 void updateApp(std::string commit) {
+		Result downloadres;
+		snprintf(progressBarMsg, sizeof(progressBarMsg), "Downloading app (CIA)...");
 		showProgressBar = true;
 		progressBarType = 0;
 		createThread((ThreadFunc)displayProgressBar);
-		snprintf(progressBarMsg, sizeof(progressBarMsg), "Downloading file list...");
-		if(downloadToFile("https://github.com/CyberYoshi64/SKKBAUI-prv/raw/master/raw/T.SYS_LAUNCHER", "/SBDownloadStation/cache/T.SYS_LAUNCHER") != 0) {
-			//showProgressBar = false;
-			downloadFailed();
-		}
-		
-		snprintf(progressBarMsg, sizeof(progressBarMsg), "Downloading newest release...");
-		if(downloadToFile("http://sbapi.me/get/DKA8N3GF/info?json=1", "/SBDownloadStation/cache/files.json") != 0) {
-			//showProgressBar = false;
-			downloadFailed();
-		}
-
-		snprintf(progressBarMsg, sizeof(progressBarMsg), "Downloading newest release...");
-		if(downloadToFile("http://github.com/CyberYoshi64/SKKBAUI-prv/raw/master/raw/T__SHELL", "/SBDownloadStation/cache/T__SHELL") != 0) {
-			//showProgressBar = false;
-			downloadFailed();
-		}
-
-		snprintf(progressBarMsg, sizeof(progressBarMsg), "Downloading newest release...");
-		if(downloadToFile("http://github.com/CyberYoshi64/SKKBAUI-prv/raw/master/raw/T_______LNC_SET", "/SBDownloadStation/cache/T_______LNC_SET") != 0) {
+		downloadres = downloadFromRelease("https://github.com/CyberYoshi64/SB-Download-Station", "SB3_Download_Station.cia", "sdmc:/SB-Download-Station/cache/temp/app.cia");
+		if(downloadres != 0) {
 			showProgressBar = false;
-			downloadFailed();
+			downloadFailed(downloadres);
 			return;
 		}
-		
-		snprintf(progressBarMsg, sizeof(progressBarMsg), "Installing newest release...");
-		progressBarType = 1;
-		//installCia("/SBDownloadStation/cache/SB3_DS.cia", false);
-		showProgressBar = false;
-		//deleteFile("sdmc:/SBDownloadStation/cache/lol.7z");
-		//deleteFile("sdmc:/SBDownloadStation/cache/SB3_DS.cia");
 
-		updateAvailable = false;
+		snprintf(progressBarMsg, sizeof(progressBarMsg), "Downloading app (3DSX)...");
+		showProgressBar = true;
+		progressBarType = 0;
+		createThread((ThreadFunc)displayProgressBar);
+		downloadres = downloadFromRelease("https://github.com/CyberYoshi64/SB-Download-Station", "SB3_Download_Station.3dsx", "sdmc:/3ds/SB-Download-Station.3dsx");
+		if(downloadres != 0) {
+			showProgressBar = false;
+			downloadFailed(downloadres);
+			return;
+		}
+
+		snprintf(progressBarMsg, sizeof(progressBarMsg), "Installing CIA...");
+		progressBarType = 1;
+		installCia("sdmc:/SB-Download-Station/cache/temp/app.cia", true);
+		showProgressBar = false;
+		deleteFile("sdmc:/SB-Download-Station/cache/temp/app.cia");
+		setInstalledVersion("SB3-DS", latestMenuRelease());
+		saveUpdateData();
+		updateAvailable[0] = false;
 		doneMsg();
 }

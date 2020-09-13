@@ -27,6 +27,8 @@ extern "C" {
 #include "gui.hpp"
 #include "json.hpp"
 #include "msg.hpp"
+#include <curl/curl.h>
+#include <curl/easy.h>
 #include "stringutils.hpp"
 
 using json = nlohmann::json;

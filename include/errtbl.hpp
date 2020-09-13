@@ -14,8 +14,9 @@
 #define LNGTXT_NO 7                          // "No"
 #define LNGTXT_CANCEL 8                      // "Cancel"
 
-#define LNGTXT_STORE_PRJ 1000                // "Store project on SD card"
-#define LNGTXT_DOWNLOAD_PRJ 1001             // "Download & Transfer demo to SmileBASIC"
+#define LNGTXT_STORE_PRJ 1000                // "Backup a project"
+#define LNGTXT_DOWNLOAD_PRJ 1001             // "Download menu"
+#define LNGTXT_UPDATE_APP 1002               // "Check for updates"
 
 #define LNGTXT_ABOUT 1500                    // "About this app"
 #define LNGTXT_ABOUT_SQUAT 1501              // "Original idea: the_squat1115"

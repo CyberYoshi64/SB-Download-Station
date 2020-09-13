@@ -1,4 +1,5 @@
 #include "common.hpp"
+#include "download.hpp"
 #include "dumpdsp.h"
 #include "inifile.h"
 #include "init.hpp"
@@ -75,7 +76,6 @@ Result Init::Initialize() {
 	init_res = acInit(); if(!R_SUCCEEDED(init_res)){errorcode=10000000;}
 	init_res = amInit(); if(!R_SUCCEEDED(init_res)){errorcode=10000001;}
 	init_res = srvInit(); if(!R_SUCCEEDED(init_res)){errorcode=10000004;}
-	init_res = httpcInit(0x8000); if(!R_SUCCEEDED(init_res)){errorcode=10000008;}
 	init_res = fsInit();
 	
 	osSetSpeedupEnable(true);	// Enable speed-up for New 3DS users
@@ -135,6 +135,8 @@ Result Init::Initialize() {
 			errorcode = 10000005;
 		}
 	}
+	C2D_TargetClear(top,RED);
+	checkForUpdates();
 	
 	return 0;
 }
@@ -224,7 +226,6 @@ Result Init::Exit() {
 	Gui::exit();
 	FSUSER_CloseArchive(extdata_archive);
 	romfsExit();
-	httpcExit();
 	srvExit();
 	fsExit();
 	cfguExit();

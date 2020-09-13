@@ -39,6 +39,7 @@ u8 fadecolor;
 C3D_RenderTarget *top;
 C3D_RenderTarget *bottom;
 int buttonpressed=-1;
+int page;
 
 void Gui::clearTextBufs(void) {
 	C2D_TextBufClear(sizeBuf);
@@ -66,15 +67,33 @@ void set_screen(C3D_RenderTarget * screen) {
 	C2D_SceneBegin(screen);
 }
 void Gui::DrawScreen(float scx, float scy, int pagex){
+	page = pagex;
+	bool mainbtn_upd = (buttonpressed == 0);
+	bool mainbtn_dwn = (buttonpressed == 1);
+	bool mainbtn_sto = (buttonpressed == 2);
 	set_screen(top);
 	gcls(top, 0xff403018);
+	if (scx > -500 && scx < 500){
+		Draw_Text_Center(160-scx, 32-scy, FONT_SIZE_14, -1, LngpackStr(LNGTXT_TOPMENU,CFGLang));
+	}
 	Draw_Rect(0,0,400,240,C2D_Color32(fadecolor,fadecolor,fadecolor,fadealpha));
 	set_screen(bottom);
 	gcls(bottom, 0xff403018);
-	if (downloading){
+	if (scx > -500 && scx < 500){
+		Draw_ImageBlend(sprites_ic_update_btn_idx, 61-scx, 26-scy, 0x80000000, 1, 1);
+		sprite(sprites_ic_update_btn_idx, 59-scx + mainbtn_upd * 2, 24-scy + mainbtn_upd * 2, 1, 1);
+		Draw_Text_Center(160-scx + mainbtn_upd * 2, 50-scy + mainbtn_upd * 2, FONT_SIZE_11,BLACK,LngpackStr(LNGTXT_UPDATE_APP,CFGLang));
 		
+		Draw_ImageBlend(sprites_ic_download_btn_idx, 61-scx, 96-scy, 0x80000000, 1, 1);
+		sprite(sprites_ic_download_btn_idx, 59-scx + mainbtn_dwn * 2, 94-scy + mainbtn_dwn * 2, 1, 1);
+		Draw_Text_Center(160-scx + mainbtn_dwn * 2, 120-scy + mainbtn_dwn * 2, FONT_SIZE_11,BLACK,LngpackStr(LNGTXT_DOWNLOAD_PRJ,CFGLang));
+		
+		Draw_ImageBlend(sprites_ic_launch_btn_idx, 61-scx, 166-scy, 0x80000000, 1, 1);
+		sprite(sprites_ic_launch_btn_idx, 59-scx + mainbtn_sto * 2, 164-scy + mainbtn_sto * 2, 1, 1);
+		Draw_Text_Center(160-scx + mainbtn_sto * 2, 190-scy + mainbtn_sto * 2, FONT_SIZE_11,BLACK,LngpackStr(LNGTXT_STORE_PRJ,CFGLang));
+		
+		Draw_Text_Center(160-scx,212-scy,FONT_SIZE_12,-1,LngpackStr(LNGTXT_EXIT,CFGLang));
 	}
-	Draw_Text_Center(160,212,FONT_SIZE_12,-1,LngpackStr(LNGTXT_EXIT,CFGLang));
 	Draw_Rect(0,0,320,240,C2D_Color32(fadecolor,fadecolor,fadecolor,fadealpha));
 }
 void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
@@ -85,7 +104,6 @@ void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
 	touchot = touchpt;
 	touchpx = touch.px;
 	touchpy = touch.py;
-	if (errorcode!=0){sprintf(errorstr,AppErrTbl(errorcode,CFGLang),errorcode);}
 	if (touchpx+touchpy!=0){
 		touchpt++;
 	} else {
@@ -95,11 +113,40 @@ void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
 		exiting=true;
 		fadeout=true;
 	}
-	if (hDown & KEY_Y && !downloading && !downloaded){
-		downloading=true;
+	
+	if (page==0 && touchpt && buttonpressed==-1 && touchpx > 60 && touchpx < 220 && touchpy > 24 && touchpy < 88){
+		buttonpressed=0; Init::SelSound();
+	}
+	
+	if (page==0 && touchpt && buttonpressed==-1 && touchpx > 60 && touchpx < 220 && touchpy > 94 && touchpy < 158){
+		buttonpressed=1; Init::SelSound();
+	}
+	
+	if (page==0 && touchpt && buttonpressed==-1 && touchpx > 60 && touchpx < 220 && touchpy > 164 && touchpy < 228){
+		buttonpressed=2; Init::SelSound();
+	}
+	
+	if (page==0 && touchot && !touchpt && buttonpressed==0){
+		Init::LaunchSound();
 		updateApp("");
 	}
-	if (errorcode != 0){
+	
+	if (page==0 && touchot && !touchpt && buttonpressed==1){
+		Init::LaunchSound();
+		showError("This feature is not yet implemented.");
+	}
+	
+	if (page==0 && touchot && !touchpt && buttonpressed==2){
+		Init::LaunchSound();
+		showError("This feature is not yet implemented.");
+	}
+	
+	if (buttonpressed!=-1 && touchot && !touchpt){
+		buttonpressed=-1;
+	}
+	
+	if (errorcode){
+		sprintf(errorstr,AppErrTbl(errorcode,CFGLang),errorcode);
 		Init::WrongSound();
 		showError(errorstr,errorcode);
 		errorcode=0;
