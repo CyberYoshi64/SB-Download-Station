@@ -3,7 +3,7 @@
 extern char errorstr;
 extern int errorcode;
 extern int CFGLang;
-
+extern int meta_total;
 char err[2048];
 char* lngc;
 char desc[8];
@@ -43,6 +43,12 @@ const char* AppErrTbl(int errorcode, u8 lang){
   }
   if (errorcode == 10010004){
     sprintf(err,"Could not successfully communicate with GitHub.\n\nDownloadError return value: DL_ERROR_GIT\n\nIf you are CyberYoshi64, please consider changing the release type from \"Pre-release\" to \"Release\" or fix up the file names in the release.\nAre the file names \"SB3_Download_Station.*\" and are there a 3DSX and a CIA included?");
+  }
+  if (errorcode == 10010006){
+    sprintf(err,"Could not connect to the internet.\n\nPlease enable wireless communication, or setup an internet connection in System Settings.");
+  }
+  if (errorcode == 10010008){
+    sprintf(err,"The index table on the repository doesn't appear to be refreshed properly.\nThe number of projects found in line 1 doe not match the actual number of projects.\n\nUsing the guessed number of projects for the listing.\n\nIf this error occures for over a week, please file an issue on the GitHub repository \"CyberYoshi64/SB-Download-Station\".");
   }
   if (lang==CFG_LANGUAGE_DE) {
   sprintf(err,"Ein unbekannter Fehlercode wurde ausgelöst.\n\n" \

@@ -4,6 +4,7 @@
 //#include "extract.hpp"
 #include "formatting.hpp"
 #include "gui.hpp"
+#include "init.hpp"
 #include "inifile.h"
 #include "keyboard.h"
 #include "thread.h"
@@ -28,23 +29,34 @@ std::string latestMenuReleaseCache = "";
 std::string latestMenuNightlyCache = "";
 std::string usernamePasswordCache = "";
 
+// Metadata for titles
+extern int meta_total;
+extern std::string meta_prjn[];
+extern std::string meta_title[];
+extern std::string meta_desc[];
+extern int meta_ver[];
+
+// External stuff
+extern bool exiting;
 extern int errorcode;
+extern int waitposx;
+extern int waitposy;
 extern C3D_RenderTarget* top;
 extern C3D_RenderTarget* bottom;
 extern bool updateAvailable[];
 extern bool updated3dsx;
+extern bool waiting;
 //extern int filesExtracted;
 //extern std::string extractingFile;
 
 char progressBarMsg[128] = "";
 bool showProgressBar = false;
-int progressBarType = 0; // 0 = Download | 1 = Extract | 2 = Install
+int progressBarType = 0; // 0 = Download | 1 = Install
 
 // That are our extract Progressbar variables.
 //extern u64 extractSize, writeOffset;
 // That are our install Progressbar variables.
 extern u64 installSize, installOffset;
-bool continueNdsScan = true;
 
 curl_off_t downloadTotal = 1; //Dont initialize with 0 to avoid division by zero later
 curl_off_t downloadNow = 0;
@@ -394,11 +406,11 @@ void downloadFailed(Result res) {
 }
 
 void notConnectedMsg(void) {
-	showError("Please connect to Wi-Fi");
+	errorcode=10010006;
 }
 
 void doneMsg(void) {
-	showError("Done!");
+	showError("Download was successful.\n\nThe app will restart, once the new version is installed.",9999999);
 }
 
 std::string getLatestRelease(std::string repo, std::string item, bool retrying) {
@@ -650,43 +662,6 @@ std::vector<std::string> getRecentCommitsArray(std::string repo, std::string arr
 	return jsonItems;
 }
 
-bool showReleaseInfo(std::string repo, bool showExitText) {
-	jsonName = getLatestRelease(repo, "name");
-	std::string jsonBody = getLatestRelease(repo, "body");
-
-	setMessageText(jsonBody);
-	int textPosition = 0;
-	bool redrawText = true;
-
-	while(1) {
-		if(redrawText) {
-			drawMessageText(textPosition, showExitText);
-			redrawText = false;
-		}
-
-		gspWaitForVBlank();
-		hidScanInput();
-		const u32 hDown = hidKeysDown();
-		const u32 hHeld = hidKeysDownRepeat();
-
-		if(hDown & KEY_A) {
-			return true;
-		} else if(hDown & KEY_B || hDown & KEY_Y || hDown & KEY_TOUCH) {
-			return false;
-		} else if(hHeld & KEY_UP) {
-			if(textPosition > 0) {
-				textPosition--;
-				redrawText = true;
-			}
-		} else if(hHeld & KEY_DOWN) {
-			if(textPosition < (int)(_topText.size() - 10)) {
-				textPosition++;
-				redrawText = true;
-			}
-		}
-	}
-}
-
 void setMessageText(const std::string &text) {
 	std::string _topTextStr(text);
 	std::vector<std::string> words;
@@ -702,6 +677,7 @@ void setMessageText(const std::string &text) {
 	std::string temp;
 	_topText.clear();
 	for(auto word : words) {
+		if (temp[0] == 32){temp = temp.substr(1,temp.length());}
 		int width = Draw_GetTextWidth(0.5f, (temp + " " + word).c_str());
 		if(word.find('\n') != -1u)
 		{
@@ -710,7 +686,7 @@ void setMessageText(const std::string &text) {
 			_topText.push_back(temp);
 			temp = "";
 		}
-		else if(width > 256)
+		else if(width > 288)
 		{
 			_topText.push_back(temp);
 			temp = word;
@@ -724,18 +700,11 @@ void setMessageText(const std::string &text) {
 		_topText.push_back(temp);
 }
 
-void drawMessageText(int position, bool showExitText) {
-	Gui::clearTextBufs();
-	C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-	C2D_TargetClear(bottom, 0xff804010);
+void drawMessageText(int x, int y, int position) {
 	set_screen(bottom);
-	Draw_Text(18, 24, .7, BLACK, jsonName.c_str());
-	for (int i = 0; i < (int)_topText.size() && i < (showExitText ? 9 : 10); i++) {
-		Draw_Text(24, ((i * 16) + 48), 0.5f, BLACK, _topText[i+position].c_str());
+	for (int i = 0; i < (int)_topText.size() && i < 10; i++) {
+		DrawStrBox(x, (i * 16) + y, 0.5f, -1, _topText[i+position].c_str(), (320-x*2), 0.975);
 	}
-	if(showExitText)
-		Draw_Text(24, 200, 0.5f, BLACK, " Cancel    Update");
-	C3D_FrameEnd(0);
 }
 
 
@@ -767,7 +736,7 @@ void displayProgressBar() {
 					formatBytes(installOffset).c_str(),
 					formatBytes(installSize).c_str(),
 					((float)installOffset/(float)installSize) * 100.0f);
-		};
+		}
 
 		Gui::clearTextBufs();
 		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
@@ -789,9 +758,29 @@ void displayProgressBar() {
 			Animation::DrawProgressBar((float)installOffset, (float)installSize);
 		}
 		C3D_FrameEnd(0);
-		//wide3DSwap();
 		gspWaitForVBlank();
 	}
+}
+
+std::string getProjectList(){
+
+	std::string liststr="";
+	std::string str;
+
+	if (downloadToFile("https://raw.githubusercontent.com/CyberYoshi64/SB3-DS-Projects/main/prjlist.txt","sdmc:/SB-Download-Station/cache/prjlist.txt") != 0){
+		showError("Project list could not be downloaded.\n\nUsing existing cache.\n(You may not be getting the latest updates of the projects.)",10020000);
+	}
+	std::ifstream file("sdmc:/SB-Download-Station/cache/prjlist.txt");
+	if (file.is_open()){
+		while (file.good()){
+			getline(file, str);
+			liststr += str;
+			liststr += "\n";
+		}
+		file.close();
+	}
+
+	return liststr;
 }
 
 bool promtUsernamePassword(void) {
@@ -902,11 +891,15 @@ void checkForUpdates() {
 
 void updateApp(std::string commit) {
 		Result downloadres;
+		if (!checkWifiStatus()){
+			notConnectedMsg();
+			return;
+		}
 		snprintf(progressBarMsg, sizeof(progressBarMsg), "Downloading app (CIA)...");
 		showProgressBar = true;
 		progressBarType = 0;
-		createThread((ThreadFunc)displayProgressBar);
-		downloadres = downloadFromRelease("https://github.com/CyberYoshi64/SB-Download-Station", "SB3_Download_Station.cia", "sdmc:/SB-Download-Station/cache/temp/app.cia");
+		if (strncmp(commit.c_str(),"no-install",10)!=0){createThread((ThreadFunc)displayProgressBar);}
+		downloadres = downloadFromRelease("https://github.com/CyberYoshi64/SB-Download-Station", "SB3_Download_Station.cia", "sdmc:/SB-Download-Station/cache/app.cia");
 		if(downloadres != 0) {
 			showProgressBar = false;
 			downloadFailed(downloadres);
@@ -914,23 +907,25 @@ void updateApp(std::string commit) {
 		}
 
 		snprintf(progressBarMsg, sizeof(progressBarMsg), "Downloading app (3DSX)...");
-		showProgressBar = true;
-		progressBarType = 0;
-		createThread((ThreadFunc)displayProgressBar);
 		downloadres = downloadFromRelease("https://github.com/CyberYoshi64/SB-Download-Station", "SB3_Download_Station.3dsx", "sdmc:/3ds/SB-Download-Station.3dsx");
 		if(downloadres != 0) {
 			showProgressBar = false;
 			downloadFailed(downloadres);
 			return;
 		}
-
-		snprintf(progressBarMsg, sizeof(progressBarMsg), "Installing CIA...");
-		progressBarType = 1;
-		installCia("sdmc:/SB-Download-Station/cache/temp/app.cia", true);
+		if (strncmp(commit.c_str(),"no-install",10)!=0){
+			snprintf(progressBarMsg, sizeof(progressBarMsg), "Installing CIA...");
+			progressBarType = 1;
+			doneMsg();
+			bool envHbl = !envIsHomebrew();
+			Result ciainsterr=installCia("sdmc:/SB-Download-Station/cache/app.cia", envHbl);
+			if R_FAILED(ciainsterr){
+				showError("CIA failed to install.\n\nPlease try again later.\n\nThe application will restart now.",ciainsterr);
+			}
+		}
 		showProgressBar = false;
-		deleteFile("sdmc:/SB-Download-Station/cache/temp/app.cia");
+		deleteFile("sdmc:/SB-Download-Station/cache/app.cia");
 		setInstalledVersion("SB3-DS", latestMenuRelease());
 		saveUpdateData();
 		updateAvailable[0] = false;
-		doneMsg();
 }

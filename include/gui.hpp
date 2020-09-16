@@ -62,9 +62,10 @@ namespace Gui {
 	void clearTextBufs(void);
 	void gcls(C3D_RenderTarget * screen, u32 color);
 	void sprite(int key, int x, int y, float sx = 1, float sy = 1);
-	void DrawScreen(float scx, float scy, int pagex);
+	void DrawScreen(void);
 	void ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch);
 	void fadeEffects(void);
+	void Waitz(void);
 }
 	void Draw_ImageBlend(int key, int x, int y, u32 color, float sx = 1, float sy = 1);
 	void displayMsg(const char* text);
@@ -73,6 +74,7 @@ namespace Gui {
 
 	void Draw_EndFrame(void);
 	void Draw_Text(float x, float y, float size, u32 color, const char *text);
+	void DrawStrBox(float x, float y, float size, u32 color, const char *text, float width, float maxwidth);
 	void Draw_Textf(float x, float y, float size, u32 color, const char* text, ...);
 	void Draw_Text_Center(float x, float y, float size, u32 color, const char *text);
 	void Draw_Textf_Center(float x, float y, float size, u32 color, const char* text, ...);

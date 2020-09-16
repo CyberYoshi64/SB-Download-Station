@@ -2,8 +2,6 @@
 
 #include "common.hpp"
 
-#define APP_TITLE "TWLMenu Updater"
-
 enum DownloadError {
 	DL_ERROR_NONE = 0,
 	DL_ERROR_WRITEFILE,
@@ -29,6 +27,9 @@ void loadUsernamePassword(void);
 void saveUsernamePassword(void);
 
 Result downloadToFile(std::string url, std::string path);
+
+std::string getProjectList(void);
+
 Result downloadFromRelease(std::string url, std::string asset, std::string path);
 
 /**
@@ -68,13 +69,6 @@ std::vector<std::string> getRecentCommits(std::string repo, std::string item, bo
 std::vector<std::string> getRecentCommitsArray(std::string repo, std::string array, std::string item, bool retrying = false);
 
 /**
- * Show the latest release's name and message.
- * repo is where to get from. (Ex. "DS-Homebrew/TWiLightMenu")
- * drawMessageText is whether to show the Cancel/Update text at the bottom
- */
-bool showReleaseInfo(std::string repo, bool drawMessageText);
-
-/**
  * Prepare text for showing a release/commit message.
  * text is the text you want to show.
  */
@@ -84,7 +78,7 @@ void setMessageText(const std::string &text);
  * Draw text prepared by setMessageText.
  * position is which line start on.
  */
-void drawMessageText(int position, bool drawMessageText);
+void drawMessageText(int x, int y, int position);
 
 /**
  * Check for updates.
@@ -92,9 +86,3 @@ void drawMessageText(int position, bool drawMessageText);
 void checkForUpdates(void);
 
 void updateApp(std::string commit);
-
-/**
- * Update the TWiLight Menu++ Updater to the latest build.
- * commit is the TWlBot commit, leave blank for release
- */
-void updateSelf(std::string commit);
