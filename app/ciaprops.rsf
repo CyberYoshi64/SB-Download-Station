@@ -59,7 +59,7 @@ AccessControlInfo:
   IoAccessControl:
    #- FsMountNand
    #- FsMountNandRoWrite
-   - FsMountTwln
+   #- FsMountTwln
    #- FsMountWnand
    - FsMountCardSpi
    - UseSdif3
@@ -86,7 +86,7 @@ AccessControlInfo:
 
   # New3DS Exclusive Process Settings
   SystemModeExt                 : Legacy # Legacy(Default)/124MB/178MB  Legacy:Use Old3DS SystemMode
-  CpuSpeed                      : 268MHz # 256MHz(Default)/804MHz
+  CpuSpeed                      : 268MHz # 268MHz(Default)/804MHz
   EnableL2Cache                 : false # false(default)/true
   CanAccessCore2                : true 
 
@@ -253,7 +253,7 @@ SystemControlInfo:
     ac: 0x0004013000002402
     #act: 0x0004013000003802
     am: 0x0004013000001502
-    boss: 0x0004013000003402
+    #boss: 0x0004013000003402
     camera: 0x0004013000001602
     cecd: 0x0004013000002602
     cfg: 0x0004013000001702
@@ -267,11 +267,11 @@ SystemControlInfo:
     hid: 0x0004013000001d02
     http: 0x0004013000002902
     i2c: 0x0004013000001e02
-    ir: 0x0004013000003302
+    #ir: 0x0004013000003302
     mcu: 0x0004013000001f02
-    mic: 0x0004013000002002
+    #mic: 0x0004013000002002
     ndm: 0x0004013000002b02
-    news: 0x0004013000003502
+    #news: 0x0004013000003502
     #nfc: 0x0004013000004002
     nim: 0x0004013000002c02
     nwm: 0x0004013000002d02

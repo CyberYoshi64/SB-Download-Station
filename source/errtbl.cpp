@@ -12,9 +12,9 @@ const char* AppErrTbl(int errorcode, u8 lang){
   sprintf(err,"An unknown error code was specified.\n\nPlease contact CyberYoshi64 " \
   "and describe him, what you did to make this error happen.\nHopefully, " \
   "he will fix it soon.");
-  //if (errorcode < 10000000){
-  //  sprintf(err,"Error summary:\n\nModule: %s \nLevel: %s \nSummary: %s \nDesc.: %s ",SysErr_ModuleStr(errorcode),SysErr_LevelStr(errorcode),SysErr_SummaryStr(errorcode),SysErr_DescStr(errorcode));
-  //}
+  if (errorcode < 10000000){
+    sprintf(err,"Error summary:\n\nModule: %s \nLevel: %s \nSummary: %s \nDesc.: %s ",SysErr_ModuleStr(errorcode),SysErr_LevelStr(errorcode),SysErr_SummaryStr(errorcode),SysErr_DescStr(errorcode));
+  }
   if (errorcode == -1){
     sprintf(err,"An invalid error code was specified.\n\n" \
     "Please contact CyberYoshi64 and describe him, what you did to make this error happen.\n" \

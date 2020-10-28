@@ -1,5 +1,10 @@
 # Changelog for SmileBASIC Download Station
 
+## 9/18/2020 - v0.0.4 - Untitled update
+
+* Updated wait icon to be a spinning circle
+* The downloader has finally been done, which will automatically put the files into SmileBASIC.
+
 ## 9/15/2020 - v0.0.3 - Download menu beginning update
 
 * Fix for issue #0: App will crash if DSP failed to dump and a SFX tries to play

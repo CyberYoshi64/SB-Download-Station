@@ -35,4 +35,6 @@ namespace Animation {
 	void DrawProgressBar(float currentProgress, float totalProgress);
 }
 
+extern float animProgBarTimer;
+
 #endif

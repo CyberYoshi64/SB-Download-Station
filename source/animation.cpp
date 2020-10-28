@@ -30,7 +30,15 @@
 
 extern C2D_SpriteSheet sprites;
 
+float animProgBarTimer=0.0f;
+
 // Draws a Rectangle as the progressbar.
 void Animation::DrawProgressBar(float currentProgress, float totalProgress) {
-	Draw_Rect(61, 170, (int)(((float)currentProgress / (float)totalProgress) * 200.0f), 28, GRAY);
+	if (animProgBarTimer > 0.99f) {
+		animProgBarTimer=0.0f;
+	} else {
+		animProgBarTimer=(animProgBarTimer * 15 + 1.0f) / 16;
+	}
+	Draw_Rect(61, 170, (int)(((float)currentProgress / (float)totalProgress) * 200.0f), 28, 0xff008000);
+	Draw_Rect(61, 170, (int)((((float)currentProgress / (float)totalProgress) * 200.0f)*animProgBarTimer), 28, C2D_Color32(0,255-animProgBarTimer*127,0,255));
 }

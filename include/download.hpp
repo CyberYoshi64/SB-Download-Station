@@ -29,6 +29,8 @@ void saveUsernamePassword(void);
 Result downloadToFile(std::string url, std::string path);
 
 std::string getProjectList(void);
+void performProjectDownload(std::string projectname);
+void getImageList(void);
 
 Result downloadFromRelease(std::string url, std::string asset, std::string path);
 

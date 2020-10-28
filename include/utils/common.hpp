@@ -25,6 +25,7 @@ extern "C" {
 
 #include "gfx.hpp"
 #include "gui.hpp"
+#include "cyvar.hpp"
 #include "json.hpp"
 #include "msg.hpp"
 #include "meta.hpp"

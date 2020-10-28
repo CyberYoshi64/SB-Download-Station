@@ -60,6 +60,7 @@ int keyboardInputInt(const char* hint) {
 }
 
 void showError(const char* errstr, int errcode=-1){
+	gspWaitForVBlank();
 	C3D_FrameEnd(0);
 	errorType typ=ERROR_TEXT_WORD_WRAP;
 	CFG_Language lang=CFG_LANGUAGE_EN;

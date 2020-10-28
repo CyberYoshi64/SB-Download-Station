@@ -2,13 +2,14 @@
 #include "cia.hpp"
 #include "download.hpp"
 //#include "extract.hpp"
+#include "errtbl.hpp"
 #include "formatting.hpp"
 #include "gui.hpp"
 #include "init.hpp"
 #include "inifile.h"
 #include "keyboard.h"
 #include "thread.h"
-
+#include <dirent.h>
 #include <fstream>
 #include <sys/stat.h>
 #include <vector>
@@ -22,12 +23,16 @@
 static char* result_buf = NULL;
 static size_t result_sz = 0;
 static size_t result_written = 0;
+int cyi[128][48][48];
 std::vector<std::string> _topText;
 std::string jsonName;
 CIniFile versionsFile("sdmc:/SB-Download-Station/data/currentVersion.ini");
 std::string latestMenuReleaseCache = "";
 std::string latestMenuNightlyCache = "";
 std::string usernamePasswordCache = "";
+
+extern Handle FShandle;
+extern FS_Archive extarc;
 
 // Metadata for titles
 extern int meta_total;
@@ -51,7 +56,7 @@ extern bool waiting;
 
 char progressBarMsg[128] = "";
 bool showProgressBar = false;
-int progressBarType = 0; // 0 = Download | 1 = Install
+u16 progressBarType = 0; // 0 = Download | 1 = Install
 
 // That are our extract Progressbar variables.
 //extern u64 extractSize, writeOffset;
@@ -71,6 +76,11 @@ static LightEvent readyToCommit;
 static LightEvent waitCommit;
 static bool killThread = false;
 static bool writeError = false;
+
+std::string downloadList[256];
+extern u16 downloadedFiles;
+extern u16 downloadNo;
+
 #define FILE_ALLOC_SIZE 0x60000
 
 static int curlProgress(CURL *hnd,
@@ -709,6 +719,7 @@ void drawMessageText(int x, int y, int position) {
 
 
 void displayProgressBar() {
+	animProgBarTimer=0.0f;
 	char str[256];
 	while(showProgressBar) {
 		if (downloadTotal < 1.0f) {
@@ -765,22 +776,98 @@ void displayProgressBar() {
 std::string getProjectList(){
 
 	std::string liststr="";
-	std::string str;
+	char byte;
 
-	if (downloadToFile("https://raw.githubusercontent.com/CyberYoshi64/SB3-DS-Projects/main/prjlist.txt","sdmc:/SB-Download-Station/cache/prjlist.txt") != 0){
+	if (downloadToFile("https://raw.githubusercontent.com/CyberYoshi64/SB3-DS-Projects/main/projlist.txt","sdmc:/SB-Download-Station/cache/prjlist.txt") != 0){
 		showError("Project list could not be downloaded.\n\nUsing existing cache.\n(You may not be getting the latest updates of the projects.)",10020000);
 	}
-	std::ifstream file("sdmc:/SB-Download-Station/cache/prjlist.txt");
+	std::ifstream file("sdmc:/SB-Download-Station/cache/prjlist.txt", std::fstream::binary);
 	if (file.is_open()){
 		while (file.good()){
-			getline(file, str);
-			liststr += str;
-			liststr += "\n";
+			file.read(&byte, 1);
+			liststr += byte;
 		}
 		file.close();
 	}
-
+	deleteFile("sdmc:/SB-Download-Station/cache/prjlist.txt");
 	return liststr;
+}
+
+void performProjectDownload(std::string projectname){
+	std::string liststr="";
+	std::string temp="";
+	char byte;
+	u32 index=0;
+	temp="/"+projectname;
+	FSUSER_DeleteDirectoryRecursively(extarc, fsMakePath(PATH_ASCII, temp.c_str()));
+	if (downloadToFile("https://raw.githubusercontent.com/CyberYoshi64/SB3-DS-Projects/main/"+projectname+"/filelist.lst","sdmc:/SB-Download-Station/cache/list.txt") != 0){
+		showError("Couldn't download the file list.\n\nRefusing to guess file names here.");
+		return;
+	}
+	std::ifstream file("sdmc:/SB-Download-Station/cache/list.txt", std::fstream::binary);
+	if (file.is_open()){
+		while (file.good()){
+			file.read(&byte, 1);
+			if (byte > 95) {break;}
+			if (byte < 45) {
+				temp=liststr;
+				downloadList[index] = temp;
+				temp=""; index++; liststr="";
+			} else {
+				liststr += byte;
+			}
+			if (index > 255) {break;}
+		}
+		file.close();
+	}
+	deleteFile("sdmc:/SB-Download-Station/cache/list.txt");
+	
+	downloadNo=index-1;
+	showProgressBar = true;
+	createThread((ThreadFunc)ProjectDownloadThread);
+	temp="/"+projectname;
+	FSUSER_CreateDirectory(extarc, fsMakePath(PATH_ASCII, temp.c_str()), FS_ATTRIBUTE_DIRECTORY);
+	for(downloadedFiles=0; downloadedFiles < index; downloadedFiles++){
+		progressBarType=0;
+		if(downloadToFile("https://raw.githubusercontent.com/CyberYoshi64/SB3-DS-Projects/main/"+projectname+"/"+downloadList[downloadedFiles],"sdmc:/SB-Download-Station/cache/"+downloadList[downloadedFiles])){
+			liststr="The file \""+downloadList[downloadedFiles]+"\" could not be downloaded due to one (or more) of the following reasons:\n\n· There might not be a internet connection available. Please check, if the wireless communication is enabled.\n· GitHub may be undergoing maintenance issues. If so, then try again later.\n· Your Nintendo 3DS system may be blocking a connection to GitHub. Check your DNS settings.\n\nIn general, you should try again later.\nIf the problem persists, you should get in contact with CyberYoshi64 through SN or by creating an issue on GitHub.";
+			showError(liststr.c_str());
+			break;
+		}
+		progressBarType=1;
+		temp="sdmc:/SB-Download-Station/cache/"+downloadList[downloadedFiles];
+		liststr="/"+projectname+"/"+downloadList[downloadedFiles];
+		std::ifstream ifile(temp.c_str(),std::fstream::binary);
+		ifile.seekg(0,ifile.end);
+		u32 fsiz=ifile.tellg();
+		ifile.seekg(0,ifile.beg);
+		char* filebuf=new char[fsiz];
+
+		ifile.read(filebuf, fsiz);
+		
+		ifile.close();
+		deleteFile(temp.c_str());
+		
+		FSUSER_CreateFile(extarc, fsMakePath(PATH_ASCII,liststr.c_str()), 0, fsiz);
+		FSUSER_OpenFile(&FShandle, extarc, fsMakePath(PATH_ASCII,liststr.c_str()), FS_OPEN_WRITE, 0);
+		u32 fsz=0;
+		do {
+			FSFILE_Write(FShandle, &fsz, fsz, filebuf, fsiz, FS_WRITE_FLUSH);
+			FSFILE_Flush(FShandle);
+		} while (fsz < fsiz);
+		FSFILE_Close(FShandle);
+	}
+	showProgressBar = false;
+	//gspWaitForVBlank();
+	//if (progressBarType) {
+	//	Gui::Dialog("The project was successfully\ndownloaded!\n\nYou can find it under the\n\""+projectname+"\"\nfolder in SmileBASIC.", GUI_DLG_OK);
+	//}
+}
+
+void getImageList(){
+	if (downloadToFile("https://raw.githubusercontent.com/CyberYoshi64/SB3-DS-Projects/main/prjic.t3x","sdmc:/SB-Download-Station/cache/prjic.t3x") != 0){
+		errorcode=10020001;
+	}
 }
 
 bool promtUsernamePassword(void) {

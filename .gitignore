@@ -38,3 +38,9 @@ temp/
 output/
 
 build/
+
+.vscode/
+
+*.bak
+
+*.0

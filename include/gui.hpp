@@ -53,6 +53,12 @@
 #define FONT_SIZE_11 0.46f
 #define FONT_SIZE_9 0.37f
 
+#define GUI_DLG_CUSTOM 0
+#define GUI_DLG_OK 1
+#define GUI_DLG_OK_CANCEL 2
+#define GUI_DLG_YES_NO 3
+#define GUI_DLG_CONT_EXIT 4
+
 namespace Gui {
 	Result init(void);
 	void exit(void);
@@ -66,6 +72,7 @@ namespace Gui {
 	void ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch);
 	void fadeEffects(void);
 	void Waitz(void);
+	bool Dialog(std::string text, u8 flag, bool buttonno=0, std::string leftbtn="", std::string rightbtn="");
 }
 	void Draw_ImageBlend(int key, int x, int y, u32 color, float sx = 1, float sy = 1);
 	void displayMsg(const char* text);
@@ -95,6 +102,7 @@ namespace Gui {
 	float _1ddist(float x0,float x1);
 	float _2ddist(float x0,float y0,float x1, float y1);
 	float clamp(float num, float low, float high);
+	void ProjectDownloadThread(void);
 	extern bool fadein;
 	extern bool fadeout;
 	extern u8 fadealpha;

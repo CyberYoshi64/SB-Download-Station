@@ -2,6 +2,7 @@
 #include "download.hpp"
 #include "inifile.h"
 #include "init.hpp"
+#include "cia.hpp"
 #include "keyboard.h"
 #include "sound.h"
 #include "thread.h"
@@ -26,10 +27,10 @@ static touchPosition touch;
 	extern std::string meta_desc[];
 	extern int meta_ver[];
 
-Handle* FShandle;
+Handle FShandle;
 FS_Path FSpath;
 FS_Archive FSarc;
-FS_Archive extdata_archive;
+FS_Archive extarc;
 
 char* string0;
 bool doFSoperations;
@@ -44,7 +45,7 @@ float pagey = 0;
 int pageid = 0;
 Result init_res;
 Result appres;
-u64 sb3freespace;
+u64 jumptarg;
 bool isInit = true;
 int delay = 0;
 bool exiting = false;
@@ -83,9 +84,9 @@ Result Init::Initialize() {
 	init_res = amInit(); if(!R_SUCCEEDED(init_res)){errorcode=10000001;}
 	init_res = srvInit(); if(!R_SUCCEEDED(init_res)){errorcode=10000004;}
 	init_res = fsInit();
-	
+
 	osSetSpeedupEnable(true);	// Enable speed-up for New 3DS users
-	
+
 	// make folders if they don't exist
 	mkdir("sdmc:/3ds", 0777);	                        // For DSP dump
 	mkdir("sdmc:/SB-Download-Station",0777);            // Working root directory on the SD card
@@ -109,25 +110,24 @@ Result Init::Initialize() {
 		sfx_back = new sound("romfs:/sound/back.wav", 2, false);
 		sfx_wait = new sound("romfs:/sound/wait.wav", 3, true);
 	}
-	
-	C2D_TargetClear(top,RED);
-	
+
 	C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+	C2D_TargetClear(bottom,BLACK);
+	set_screen(bottom);
 	Draw_Text_Center(160,116,FONT_SIZE_14,-1,"Checking for updates...");
 	C3D_FrameEnd(0);
 
 	checkForUpdates();
-	
+
 	Meta::init();
-	
+
 	if(!R_SUCCEEDED(init_res)){
 		errorcode=10000003;
 	} else {
 		u32 extdata_archive_lowpathdata[3] = {1,0x00001a1c,0};
-		FShandle=fsGetSessionHandle();
-		appres=FSUSER_OpenArchive(&extdata_archive, ARCHIVE_EXTDATA, {PATH_BINARY, 12, &extdata_archive_lowpathdata});
+		appres=FSUSER_OpenArchive(&extarc, ARCHIVE_EXTDATA, (FS_Path){PATH_BINARY, 12, &extdata_archive_lowpathdata});
 	}
-	
+
 	return 0;
 }
 
@@ -218,6 +218,19 @@ void Init::StopWaitSound(){
 }
 
 Result Init::Exit() {
+
+	if (access("sdmc:/SB-Download-Station/cache/app.cia", F_OK ) != -1){
+		deleteFile("sdmc:/SB-Download-Station/cache/app.cia");
+	}
+
+	if (access("sdmc:/SB-Download-Station/cache/ic.t3x", F_OK ) != -1){
+		deleteFile("sdmc:/SB-Download-Station/cache/ic.t3x");
+	}
+
+	if (access("sdmc:/SB-Download-Station/cache/prjlist.txt", F_OK ) != -1){
+		deleteFile("sdmc:/SB-Download-Station/cache/prjlist.txt");
+	}
+
 	delete mus_bgm;
 	delete sfx_launch;
 	delete sfx_select;
@@ -225,17 +238,20 @@ Result Init::Exit() {
 	delete sfx_switch;
 	delete sfx_wrong;
 	delete sfx_back;
+	delete sfx_wait;
 	if (dspfirmfound) {
 		ndspExit();
 	}
 	Meta::exit();
 	Gui::exit();
-	FSUSER_CloseArchive(extdata_archive);
+	FSUSER_ControlArchive(extarc, ARCHIVE_ACTION_COMMIT_SAVE_DATA, nullptr, 0, nullptr, 0);
+	FSUSER_CloseArchive(extarc);
 	romfsExit();
 	srvExit();
 	fsExit();
 	cfguExit();
 	amExit();
 	acExit();
+	gfxExit();
 	return 0;
 }
