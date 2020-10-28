@@ -1,6 +1,6 @@
 # Changelog for SmileBASIC Download Station
 
-## 9/18/2020 - v0.0.4 - Untitled update
+## 10/28/2020 - v0.0.4 - Downloader and injecter update
 
 * Updated wait icon to be a spinning circle
 * The downloader has finally been done, which will automatically put the files into SmileBASIC.
