@@ -1,4 +1,4 @@
---atlas -f rgba -z auto
+--atlas -f rgba -z auto -p t3x.png
 ic_btn_generic_small_n.png
 ic_title_bar.png
 waiticon.png

@@ -51,6 +51,8 @@ extern C3D_RenderTarget* bottom;
 extern bool updateAvailable[];
 extern bool updated3dsx;
 extern bool waiting;
+extern int retry;
+extern bool ExtDataFolderDeleteDialog;
 //extern int filesExtracted;
 //extern std::string extractingFile;
 
@@ -135,7 +137,7 @@ static size_t file_handle_data(char *ptr, size_t size, size_t nmemb, void *userd
 	if (file_buffer_pos + bsz >= FILE_ALLOC_SIZE) {
 		tofill = FILE_ALLOC_SIZE - file_buffer_pos;
 		memcpy(g_buffers[g_index] + file_buffer_pos, ptr, tofill);
-		
+
 		LightEvent_Wait(&waitCommit);
 		LightEvent_Clear(&waitCommit);
 		file_toCommit_size = file_buffer_pos + tofill;
@@ -166,7 +168,7 @@ Result downloadToFile(std::string url, std::string path) {
 		retcode = -1;
 		goto exit;
 	}
-	
+
 	res = socInit((u32*)socubuf, 0x100000);
 	if (R_FAILED(res)) {
 		retcode = res;
@@ -198,7 +200,7 @@ Result downloadToFile(std::string url, std::string path) {
 
 	cres = curl_easy_perform(hnd);
 	curl_easy_cleanup(hnd);
-	
+
 	if (cres != CURLE_OK) {
 		retcode = -cres;
 		goto exit;
@@ -215,7 +217,7 @@ Result downloadToFile(std::string url, std::string path) {
 		goto exit;
 	}
 	fflush(downfile);
-	
+
 exit:
 	if (fsCommitThread) {
 		killThread = true;
@@ -226,7 +228,7 @@ exit:
 	}
 
 	socExit();
-	
+
 	if (socubuf) {
 		free(socubuf);
 	}
@@ -246,7 +248,7 @@ exit:
 	file_buffer_pos = 0;
 	file_toCommit_size = 0;
 	writeError = false;
-	
+
 	return retcode;
 }
 
@@ -779,7 +781,8 @@ std::string getProjectList(){
 	char byte;
 
 	if (downloadToFile("https://raw.githubusercontent.com/CyberYoshi64/SB3-DS-Projects/main/projlist.txt","sdmc:/SB-Download-Station/cache/prjlist.txt") != 0){
-		showError("Project list could not be downloaded.\n\nUsing existing cache.\n(You may not be getting the latest updates of the projects.)",10020000);
+		showError("Project list could not be downloaded.",10020000);
+		return "";
 	}
 	std::ifstream file("sdmc:/SB-Download-Station/cache/prjlist.txt", std::fstream::binary);
 	if (file.is_open()){
@@ -794,14 +797,24 @@ std::string getProjectList(){
 }
 
 void performProjectDownload(std::string projectname){
+	retry=0;
 	std::string liststr="";
 	std::string temp="";
 	char byte;
 	u32 index=0;
 	temp="/"+projectname;
-	FSUSER_DeleteDirectoryRecursively(extarc, fsMakePath(PATH_ASCII, temp.c_str()));
+	if (!R_FAILED(FSUSER_OpenDirectory(&FShandle, extarc, fsMakePath(PATH_ASCII,temp.c_str())))) {
+		if (ExtDataFolderDeleteDialog && Gui::Dialog("The folder was detected in\nthe extData!\n\nWould you like to clear it?", GUI_DLG_NO_YES, 0, "", "")) {
+			FSUSER_DeleteDirectoryRecursively(extarc, fsMakePath(PATH_ASCII, temp.c_str()));
+		}
+	} else {
+		FSDIR_Close(FShandle);
+	}
+
+	ExtDataFolderDeleteDialog=false;
+
 	if (downloadToFile("https://raw.githubusercontent.com/CyberYoshi64/SB3-DS-Projects/main/"+projectname+"/filelist.lst","sdmc:/SB-Download-Station/cache/list.txt") != 0){
-		showError("Couldn't download the file list.\n\nRefusing to guess file names here.");
+		retry = Gui::Dialog("Couldn't download the file\nlist from GitHub.\n\nWould you like to try again?", GUI_DLG_NO_YES, 0, "", "");
 		return;
 	}
 	std::ifstream file("sdmc:/SB-Download-Station/cache/list.txt", std::fstream::binary);
@@ -821,7 +834,7 @@ void performProjectDownload(std::string projectname){
 		file.close();
 	}
 	deleteFile("sdmc:/SB-Download-Station/cache/list.txt");
-	
+
 	downloadNo=index-1;
 	showProgressBar = true;
 	createThread((ThreadFunc)ProjectDownloadThread);
@@ -844,10 +857,10 @@ void performProjectDownload(std::string projectname){
 		char* filebuf=new char[fsiz];
 
 		ifile.read(filebuf, fsiz);
-		
+
 		ifile.close();
 		deleteFile(temp.c_str());
-		
+
 		FSUSER_CreateFile(extarc, fsMakePath(PATH_ASCII,liststr.c_str()), 0, fsiz);
 		FSUSER_OpenFile(&FShandle, extarc, fsMakePath(PATH_ASCII,liststr.c_str()), FS_OPEN_WRITE, 0);
 		u32 fsz=0;
@@ -858,10 +871,12 @@ void performProjectDownload(std::string projectname){
 		FSFILE_Close(FShandle);
 	}
 	showProgressBar = false;
-	//gspWaitForVBlank();
-	//if (progressBarType) {
-	//	Gui::Dialog("The project was successfully\ndownloaded!\n\nYou can find it under the\n\""+projectname+"\"\nfolder in SmileBASIC.", GUI_DLG_OK);
-	//}
+	gspWaitForVBlank();
+	if (progressBarType) {
+		Gui::Dialog("The project was successfully\ndownloaded!\n\nYou can find it under the\n\""+projectname+"\"\nfolder in SmileBASIC.", GUI_DLG_OK, 0, "", "");
+	} else {
+		retry = Gui::Dialog("Would you like to try again?", GUI_DLG_NO_YES, 0, "", "");
+	}
 }
 
 void getImageList(){

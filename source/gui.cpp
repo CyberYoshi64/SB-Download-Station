@@ -17,18 +17,11 @@ static C2D_SpriteSheet sprites;
 static C2D_SpriteSheet meta_img;
 char errorstr[2048];
 int errorcode=0;
-int touchpt;
-int touchpx;
-int touchpy;
-int touchot;
-int touchox;
-int touchoy;
+int touchpt, touchpx, touchpy;
+int touchot, touchox, touchoy;
 int waitictimer;
-int waitposx;
-int waitposy;
-int waitalpha=15;
-int maincnt;
-int waitmc;
+int waitposx, waitposy, waitalpha=15;
+int maincnt, waitmc;
 float millisec;
 std::string keyboardIn;
 char stringtochar_buf[8192];
@@ -54,6 +47,8 @@ extern int meta_ver[];
 extern int meta_total;
 extern u64 jumptarg;
 
+bool ExtDataFolderDeleteDialog;
+int retry;
 u16 downloadNo=1; /* Initialising the file count with 1, to prevent div by 0 */
 u16 downloadedFiles;
 
@@ -70,6 +65,11 @@ u8 fadecolor;
 C3D_RenderTarget *top;
 C3D_RenderTarget *bottom;
 int buttonpressed=-1;
+
+float fadea;
+u8 fader;
+u8 fadeg;
+u8 fadeb;
 
 void Gui::clearTextBufs(void) {
 	C2D_TextBufClear(sizeBuf);
@@ -332,19 +332,19 @@ void ProjectDownloadThread(){
 			downloadNo = 1;
 		}
 		snprintf(str, sizeof(str), "%d / %d",downloadedFiles,downloadNo);
-		
+
 		if (threadcnt < 160 && !shademode) {
 			threadcnt++;
 		} else {
 			shademode=true;
 		}
-		
+
 		if (threadcnt > 80 && shademode) {
 			threadcnt--;
 		} else {
 			shademode=false;
 		}
-		
+
 		Gui::clearTextBufs();
 		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
 		set_screen(bottom);
@@ -362,23 +362,83 @@ void ProjectDownloadThread(){
 }
 
 void Dialog_DrawContent(float jiff, std::string text, bool buttonno, std::string leftbtn, std::string rightbtn){
+	Gui::clearTextBufs();
+	C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+	set_screen(bottom);
+	Draw_Rect(0,0,320,240,C2D_Color32(0,0,0,clamp(jiff+256,0,255)));
 	Draw_Rect(32,32+jiff,320-64,240-64,0xE8202830);
 	DrawStrBoxC(160, 64+jiff, 0.5f, -1, text.c_str(), 320-80, 1);
 	Draw_Rect(32,240-64+jiff,320-64,32,0xFF208090);
+	C3D_FrameEnd(0);
+}
+
+void Gui::FaderIn(u32 time){
+	if (time == 0){
+		C2D_Fade(0); return;
+	}
+	u32 functim=0;
+	fadea=255.0f;
+	float steps = fadea / time;
+	while (functim < time) {
+		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+		fadea -= steps;
+		C2D_Fade(C2D_Color32(fader,fadeg,fadeb,fadea));
+		C3D_FrameEnd(0);
+		functim++;
+	}
+}
+
+void Gui::FaderOut(u8 r,u8 g,u8 b,u32 time){
+	if (time == 0){
+		C2D_Fade(C2D_Color32(r,g,b,255)); return;
+	}
+	u32 functim=0;
+	fadea=0.0f;
+	float steps = 255 / time;
+	while (functim < time) {
+		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+		fadea += steps;
+		C2D_Fade(C2D_Color32(fader,fadeg,fadeb,fadea));
+		C3D_FrameEnd(0);
+		functim++;
+	}
 }
 
 bool Gui::Dialog(std::string text, u8 flag, bool buttonno, std::string leftbtn, std::string rightbtn){
 	float offset=-240.0f; float vel=0.0f; bool hasChosen=false; bool res=true;
-	while (!hasChosen or offset < -0.05f){
-		Dialog_DrawContent(offset, text, buttonno, leftbtn, rightbtn);
-		offset=offset*0.5;
+	switch (flag) {
+		case GUI_DLG_OK:
+			buttonno=false;
+			leftbtn="OK";
+			rightbtn="OK";
+			break;
+		case GUI_DLG_NO_YES:
+			buttonno=true;
+			leftbtn="No";
+			rightbtn="Yes";
+			break;
+		case GUI_DLG_CANCEL_OK:
+			buttonno=true;
+			leftbtn="Cancel";
+			rightbtn="OK";
+			break;
+		case GUI_DLG_EXIT_CONT:
+			buttonno=true;
+			leftbtn="Exit";
+			rightbtn="Continue";
+			break;
 	}
-	vel=1/512;
+	while (offset < -0.5f || !hasChosen){
+		Dialog_DrawContent(offset, text, buttonno, leftbtn, rightbtn);
+		offset=offset*0.75f;
+	}
+	vel=1.0f / 512.0f;
 	while (offset < 240.0f){
-		vel=vel*2.0f;
+		vel=vel*1.25f;
 		offset += vel;
 		Dialog_DrawContent(offset, text, buttonno, leftbtn, rightbtn);
 	}
+	return res;
 }
 
 void Gui::DrawScreen(){
@@ -558,10 +618,12 @@ void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
 	}
 
 	if (pageid==1 && ((touchot && !touchpt && buttonpressed==3) || (!(hHeld & KEY_A) && buttonpressed==4)) && !exiting){
-		buttonpressed=0;
+		buttonpressed=-1;
 		Init::LaunchSound();
-		down_show_props=false;
-		performProjectDownload(meta_prjn[down_s]);
+		down_show_props=false; retry=1; ExtDataFolderDeleteDialog=true;
+		do {
+			performProjectDownload(meta_prjn[down_s]);
+		} while (retry);
 	}
 
 	if (pageid==1){

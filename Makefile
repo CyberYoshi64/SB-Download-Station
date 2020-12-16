@@ -43,6 +43,7 @@ OUTPUT      := output
 RESOURCES   := app
 ROMFS       := romfs
 GFXBUILD    := $(ROMFS)/gfx
+NO_SMDH     := true
 #---------------------------------------------------------------------------------
 # Resource Setup
 #---------------------------------------------------------------------------------
@@ -139,9 +140,8 @@ ifeq ($(strip $(ICON)),)
 else
 	export APP_ICON := $(TOPDIR)/$(ICON)
 endif
-ifeq ($(strip $(NO_SMDH)),)
-	export _3DSXFLAGS += --smdh=$(OUTPUT_FILE).smdh
-endif
+
+export _3DSXFLAGS += --smdh=$(TOPDIR)/$(BUILD)/icon.icn
 
 ifneq ($(ROMFS),)
 	export _3DSXFLAGS += --romfs=$(CURDIR)/$(ROMFS)
@@ -245,9 +245,9 @@ $(OUTPUT_FILE).3dsx : $(OUTPUT_FILE).elf $(_3DSXDEPS)
 	$(_3DSXTOOL) $< $@ $(_3DSXFLAGS)
 	@echo built ... $(notdir $@)
 
-$(OUTPUT_FILE).smdh : $(APP_ICON)
-	@$(SMDHTOOL) --create "$(APP_TITLE)" "$(APP_DESCRIPTION)" "$(APP_AUTHOR)" $(APP_ICON) $@
-	@echo built ... $(notdir $@)
+#$(OUTPUT_FILE).smdh : $(APP_ICON)
+#	@$(SMDHTOOL) --create "$(APP_TITLE)" "$(APP_DESCRIPTION)" "$(APP_AUTHOR)" $(APP_ICON) $@
+#	@echo built ... $(notdir $@)
 
 $(OFILES_SOURCES) : $(HFILES)
 
@@ -274,9 +274,9 @@ banner.bnr : $(BANNER_IMAGE_FILE) $(BANNER_AUDIO_FILE)
 	@$(BANNERTOOL) makebanner $(BANNER_IMAGE_ARG) $(BANNER_AUDIO_ARG) -o banner.bnr > /dev/null
 	@echo built ... $(notdir $@)
 
-icon.icn : $(APP_ICON)
-	@$(BANNERTOOL) makesmdh -s "$(APP_TITLE)" -l "$(APP_TITLE)" -p "$(APP_AUTHOR)" -i $(APP_ICON) -o icon.icn > /dev/null
-	@echo built ... $(notdir $@)
+#icon.icn : $(APP_ICON)
+#	@$(BANNERTOOL) makesmdh -s "$(APP_TITLE)" -l "$(APP_TITLE)" -p "$(APP_AUTHOR)" -i $(APP_ICON) -o icon.icn > /dev/null
+#	@echo built ... $(notdir $@)
 
 3dsx : $(OUTPUT_FILE).3dsx
 

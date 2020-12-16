@@ -55,9 +55,9 @@
 
 #define GUI_DLG_CUSTOM 0
 #define GUI_DLG_OK 1
-#define GUI_DLG_OK_CANCEL 2
-#define GUI_DLG_YES_NO 3
-#define GUI_DLG_CONT_EXIT 4
+#define GUI_DLG_CANCEL_OK 2
+#define GUI_DLG_NO_YES 3
+#define GUI_DLG_EXIT_CONT 4
 
 namespace Gui {
 	Result init(void);
@@ -72,6 +72,8 @@ namespace Gui {
 	void ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch);
 	void fadeEffects(void);
 	void Waitz(void);
+	void FaderIn(u32 time);
+	void FaderOut(u8 r, u8 g, u8 b, u32 time);
 	bool Dialog(std::string text, u8 flag, bool buttonno=0, std::string leftbtn="", std::string rightbtn="");
 }
 	void Draw_ImageBlend(int key, int x, int y, u32 color, float sx = 1, float sy = 1);
@@ -103,6 +105,10 @@ namespace Gui {
 	float _2ddist(float x0,float y0,float x1, float y1);
 	float clamp(float num, float low, float high);
 	void ProjectDownloadThread(void);
+	extern float fadea;
+	extern u8 fader;
+	extern u8 fadeg;
+	extern u8 fadeb;
 	extern bool fadein;
 	extern bool fadeout;
 	extern u8 fadealpha;
