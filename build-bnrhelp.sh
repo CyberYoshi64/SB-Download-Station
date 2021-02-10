@@ -48,57 +48,10 @@ bannertool makesmdh \
 -l "SmileBASIC Download Station" \
 -p "the_squat1115, CyberYoshi64" \
 -i app/icon.png \
--o build/icon.icn \
-\
--js "プチコン３号ダウンロードステーション" \
--jl "プチコン３号ダウンロードステーション" \
--jp "the_squat1115, CyberYoshi64" \
-\
--es "SmileBASIC Download Station" \
--el "SmileBASIC Download Station" \
--ep "the_squat1115, CyberYoshi64" \
-\
--fs "Station de téléchargement SmileBASIC" \
--fl "Station de téléchargement SmileBASIC" \
--fp "the_squat1115, CyberYoshi64" \
-\
--gs "SmileBASIC-Download-Station" \
--gl "SmileBASIC-Download-Station" \
--gp "the_squat1115, CyberYoshi64" \
-\
--is "SmileBASIC Download Station" \
--il "SmileBASIC Download Station" \
--ip "the_squat1115, CyberYoshi64" \
-\
--ss "Estación de descarga SmileBASIC" \
--sl "Estación de descarga SmileBASIC" \
--sp "the_squat1115, CyberYoshi64" \
-\
--scs "SB3下載站" \
--scl "SB3下載站" \
--scp "the_squat1115, CyberYoshi64" \
-\
--ks "SB3 다운로드 스테이션" \
--kl "SB3 다운로드 스테이션" \
--kp "the_squat1115, CyberYoshi64" \
-\
--ds "SmileBASIC Download Station" \
--dl "SmileBASIC Download Station" \
--dp "the_squat1115, CyberYoshi64" \
-\
--ps "Estação de download SmileBASIC" \
--pl "Estação de download SmileBASIC" \
--pp "the_squat1115, CyberYoshi64" \
-\
--rs "Станция загрузки SmileBASIC" \
--rl "Станция загрузки SmileBASIC" \
--rp "the_squat1115, CyberYoshi64" \
-\
--tcs "SB3下载站" \
--tcl "SB3下载站" \
--tcp "the_squat1115, CyberYoshi64" \
-\
+-o build/icon.icn.tmp \
 -r regionfree -f visible,nosavebackups,allow3d
+
+tools/bannertool-smdhfix build/icon.icn.tmp app/smdh.wtxt build/icon.icn
 
 echo ""
 echo " --- Start the tedious compiling process..."

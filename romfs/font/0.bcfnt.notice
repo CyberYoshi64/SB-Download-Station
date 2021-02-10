@@ -1,1 +1,9 @@
-The "romfs:/font/0.bcfnt" file is a copy of the std archive.
+The following fonts are used to generate this BCFNT file:
+
+· Rodin NTLG Pro DB (from Adobe archive, excluding Kanji)
+· Nintendo Ext-003 (3DS/WiiU/Switch PUA characters)
+· SmileBASIC 3 - PUA characters
+· Trebuchet MS (Fallback)
+
+The file (on the source computer) is located under:
+/data/home/CyberYoshi64/github/SB-Download-Station/bcfnt-regenerate.sh

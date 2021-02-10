@@ -23,7 +23,6 @@
 static char* result_buf = NULL;
 static size_t result_sz = 0;
 static size_t result_written = 0;
-int cyi[128][48][48];
 std::vector<std::string> _topText;
 std::string jsonName;
 CIniFile versionsFile("sdmc:/SB-Download-Station/data/currentVersion.ini");
@@ -35,11 +34,11 @@ extern Handle FShandle;
 extern FS_Archive extarc;
 
 // Metadata for titles
-extern int meta_total;
+extern u32 meta_total;
 extern std::string meta_prjn[];
 extern std::string meta_title[];
 extern std::string meta_desc[];
-extern int meta_ver[];
+extern u32 meta_ver[];
 
 // External stuff
 extern bool exiting;
@@ -719,62 +718,6 @@ void drawMessageText(int x, int y, int position) {
 	}
 }
 
-
-void displayProgressBar() {
-	animProgBarTimer=0.0f;
-	char str[256];
-	while(showProgressBar) {
-		if (downloadTotal < 1.0f) {
-			downloadTotal = 1.0f;
-		}
-		if (downloadTotal < downloadNow) {
-			downloadTotal = downloadNow;
-		}
-
-		// Downloading.
-		if (progressBarType == 0){
-			snprintf(str, sizeof(str), "%s / %s (%.2f%%)",
-					formatBytes(downloadNow).c_str(),
-					formatBytes(downloadTotal).c_str(),
-					((float)downloadNow/(float)downloadTotal) * 100.0f);
-					// Extracting.
-		} else if (progressBarType == 2) {
-			//snprintf(str, sizeof(str), "%s / %s (%.2f%%)",
-			//		formatBytes(writeOffset).c_str(),
-			//		formatBytes(extractSize).c_str(),
-			//		((float)writeOffset/(float)extractSize) * 100.0f);
-			// Installing.
-		} else if (progressBarType == 1){
-			snprintf(str, sizeof(str), "%s / %s (%.2f%%)",
-					formatBytes(installOffset).c_str(),
-					formatBytes(installSize).c_str(),
-					((float)installOffset/(float)installSize) * 100.0f);
-		}
-
-		Gui::clearTextBufs();
-		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-		C2D_TargetClear(bottom, 0xff905020);
-		set_screen(bottom);
-		Draw_Text_Center(160, 40, 0.60f, BLACK, progressBarMsg);
-		// Only display this by downloading.
-		if (progressBarType == 0) {
-			Draw_Text_Center(160, 100, 0.6f, BLACK, str);
-			// Outline of progressbar.
-			Draw_Rect(60, 169, 202, 30, BLACK);
-			Animation::DrawProgressBar(downloadNow, downloadTotal);
-		}
-		// Only display this by installing.
-		if (progressBarType == 1) {
-			Draw_Text_Center(160, 100, 0.4f, BLACK, str);
-			// Outline of progressbar.
-			Draw_Rect(60, 169, 202, 30, BLACK);
-			Animation::DrawProgressBar((float)installOffset, (float)installSize);
-		}
-		C3D_FrameEnd(0);
-		gspWaitForVBlank();
-	}
-}
-
 std::string getProjectList(){
 
 	std::string liststr="";
@@ -804,7 +747,7 @@ void performProjectDownload(std::string projectname){
 	u32 index=0;
 	temp="/"+projectname;
 	if (!R_FAILED(FSUSER_OpenDirectory(&FShandle, extarc, fsMakePath(PATH_ASCII,temp.c_str())))) {
-		if (ExtDataFolderDeleteDialog && Gui::Dialog("The folder was detected in\nthe extData!\n\nWould you like to clear it?", GUI_DLG_NO_YES, 0, "", "")) {
+		if (ExtDataFolderDeleteDialog) {
 			FSUSER_DeleteDirectoryRecursively(extarc, fsMakePath(PATH_ASCII, temp.c_str()));
 		}
 	} else {
@@ -814,7 +757,7 @@ void performProjectDownload(std::string projectname){
 	ExtDataFolderDeleteDialog=false;
 
 	if (downloadToFile("https://raw.githubusercontent.com/CyberYoshi64/SB3-DS-Projects/main/"+projectname+"/filelist.lst","sdmc:/SB-Download-Station/cache/list.txt") != 0){
-		retry = Gui::Dialog("Couldn't download the file\nlist from GitHub.\n\nWould you like to try again?", GUI_DLG_NO_YES, 0, "", "");
+		retry = false;
 		return;
 	}
 	std::ifstream file("sdmc:/SB-Download-Station/cache/list.txt", std::fstream::binary);
@@ -837,7 +780,6 @@ void performProjectDownload(std::string projectname){
 
 	downloadNo=index-1;
 	showProgressBar = true;
-	createThread((ThreadFunc)ProjectDownloadThread);
 	temp="/"+projectname;
 	FSUSER_CreateDirectory(extarc, fsMakePath(PATH_ASCII, temp.c_str()), FS_ATTRIBUTE_DIRECTORY);
 	for(downloadedFiles=0; downloadedFiles < index; downloadedFiles++){
@@ -871,12 +813,6 @@ void performProjectDownload(std::string projectname){
 		FSFILE_Close(FShandle);
 	}
 	showProgressBar = false;
-	gspWaitForVBlank();
-	if (progressBarType) {
-		Gui::Dialog("The project was successfully\ndownloaded!\n\nYou can find it under the\n\""+projectname+"\"\nfolder in SmileBASIC.", GUI_DLG_OK, 0, "", "");
-	} else {
-		retry = Gui::Dialog("Would you like to try again?", GUI_DLG_NO_YES, 0, "", "");
-	}
 }
 
 void getImageList(){
@@ -1000,7 +936,6 @@ void updateApp(std::string commit) {
 		snprintf(progressBarMsg, sizeof(progressBarMsg), "Downloading app (CIA)...");
 		showProgressBar = true;
 		progressBarType = 0;
-		if (strncmp(commit.c_str(),"no-install",10)!=0){createThread((ThreadFunc)displayProgressBar);}
 		downloadres = downloadFromRelease("https://github.com/CyberYoshi64/SB-Download-Station", "SB3_Download_Station.cia", "sdmc:/SB-Download-Station/cache/app.cia");
 		if(downloadres != 0) {
 			showProgressBar = false;

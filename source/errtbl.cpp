@@ -126,44 +126,55 @@ u8 LanguageStrFromInt(const char* lang){
 }
 
 const char* LngpackStr(int lngid, int lang){
-  if (lang == CFG_LANGUAGE_JP){
-  } else if (lang == CFG_LANGUAGE_FR){
-  } else if (lang == CFG_LANGUAGE_DE){
-  } else if (lang == CFG_LANGUAGE_IT){
-  } else if (lang == CFG_LANGUAGE_ES){
-  } else if (lang == CFG_LANGUAGE_KO){
-  } else if (lang == CFG_LANGUAGE_NL){
-  } else if (lang == CFG_LANGUAGE_PT){
-  } else if (lang == CFG_LANGUAGE_RU){
-  }
-  switch (lngid) {
-    case LNGTXT_TOPMENU: return "Main menu";
-    case LNGTXT_EXIT: return "Press HOME to return to the HOME menu.";
-    case LNGTXT_BACK: return "Back";
-    case LNGTXT_NEXT: return "Next";
-    case LNGTXT_YES: return "Yes";
-    case LNGTXT_NO: return "No";
-    case LNGTXT_CANCEL: return "Cancel";
-    case LNGTXT_CONTINUE: return "Continue";
-    
-    case LNGTXT_PROCEED_ASK: return "Would you like to proceed?";
-
-    case LNGTXT_STORE_PRJ: return "Backup a project";
-    case LNGTXT_DOWNLOAD_PRJ: return "Download menu";
-    case LNGTXT_UPDATE_APP: return "Check for updates";
-
-    case LNGTXT_ABOUT: return "About this app";
-    case LNGTXT_ABOUT_SQUAT: return "Original idea: the_squat1115";
-    case LNGTXT_ABOUT_CY64: return "App programmer: CyberYoshi64";
-    case LNGTXT_ABOUT_SRCCODE: return "Certain pieces of the source code are from:";
-    case LNGTXT_ABOUT_SMILEBASIC: return "SmileBASIC is a trademark of SmileBoom Co.Ltd.";
-    case LNGTXT_ABOUT_BUILD: return "Built with devkitPro.";
-
-    case NIEK_HAT_STERN_GESAGT: return "Niek hat Stern gesagt!";
-  }
-
-  sprintf(desc,"%02x:%04d",CFGLang,lngid);
-  return desc;
+	if (lang == CFG_LANGUAGE_JP){ // Japanese
+		
+	} else if (lang == CFG_LANGUAGE_FR){ // French (Français)
+		
+	} else if (lang == CFG_LANGUAGE_DE){ // German (Deutsch)
+		
+	} else if (lang == CFG_LANGUAGE_IT){ // Italian (Italiano)
+		
+	} else if (lang == CFG_LANGUAGE_ES){ // Spanish (Espanol)
+		
+	} else if (lang == CFG_LANGUAGE_NL){ // Dutch (Nederlands)
+		
+	} else if (lang == CFG_LANGUAGE_PT){ // Portuguese (Português)
+		
+	} else if (lang == CFG_LANGUAGE_RU){ // Russian (Pyccĸuu)
+		
+	} else if (lang < 12){ // English (English, fallback for valid languages)
+		switch (lngid) {
+			case LNGTXT_APPNAME: return "SmileBASIC Download Station";
+			case LNGTXT_EXIT: return "Exit";
+			case LNGTXT_BACK: return "Back";
+			case LNGTXT_NEXT: return "Next";
+			case LNGTXT_YES: return "Yes";
+			case LNGTXT_NO: return "No";
+			case LNGTXT_CANCEL: return "Cancel";
+			case LNGTXT_CONTINUE: return "Continue";
+			
+			case LNGTXT_PROCEED_ASK: return "Would you like to proceed?";
+			
+			case LNGTXT_MNG_PRJ: return "Backup a project";
+			case LNGTXT_DOWNLOAD_PRJ: return "Download projects";
+			case LNGTXT_UPDATE_APP: return "Download updates";
+			
+			case LNGTXT_ABOUT: return "About";
+			case LNGTXT_ABOUT_SQUAT: return "Original idea: the_squat1115";
+			case LNGTXT_ABOUT_CY64: return "App programmer: CyberYoshi64";
+			case LNGTXT_ABOUT_SRCCODE: return "Certain pieces of the source code are from:";
+			case LNGTXT_ABOUT_SMILEBASIC: return "SmileBASIC is a trademark of SmileBoom Co.Ltd.";
+			case LNGTXT_ABOUT_BUILD: return "Built with devkitPro on 20201221.";
+			
+			case LNGTXT_MAIN_MENU_TXT: return "Welcome to SmileBASIC Download Station!\n\nHere you can manage your SmileBASIC projects\nand download new projects from a GitHub repository.";
+			case LNGTXT_PLSWAIT: return "Please wait…";
+			case LNGTXT_SETTINGS_TXT: return "Configure SmileBASIC Download Station.";
+			case LNGTXT_INSTALLING_TXT: return "Installing project to SmileBASIC...";
+			case LNGTXT_UPDATING_TXT: return "Updating application...";
+		}
+	}
+	sprintf(desc,"%02x:%04d",CFGLang,lngid);
+	return desc;
 }
 
 const char* SysErr_LevelStr(int id){

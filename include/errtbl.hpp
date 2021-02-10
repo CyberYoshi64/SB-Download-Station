@@ -4,31 +4,34 @@
 #include <string>
 
 // language pack sorting ID names
-#define LNGTXT_NULL 0                        // dummy entry
-#define LNGTXT_TOPMENU 1                     // "Top menu"
-#define LNGTXT_EXIT 2                        // "Press HOME to exit."
-#define LNGTXT_BACK 3                        // "Back"
-#define LNGTXT_NEXT 4                        // "Next"
-#define LNGTXT_CONTINUE 5                    // "Continue"
-#define LNGTXT_YES 6                         // "Yes"
-#define LNGTXT_NO 7                          // "No"
-#define LNGTXT_CANCEL 8                      // "Cancel"
+#define LNGTXT_NULL 0
+#define LNGTXT_APPNAME 1
+#define LNGTXT_EXIT 2
+#define LNGTXT_BACK 3
+#define LNGTXT_NEXT 4
+#define LNGTXT_CONTINUE 5
+#define LNGTXT_YES 6
+#define LNGTXT_NO 7
+#define LNGTXT_CANCEL 8
 
-#define LNGTXT_STORE_PRJ 1000                // "Backup a project"
-#define LNGTXT_DOWNLOAD_PRJ 1001             // "Download menu"
-#define LNGTXT_UPDATE_APP 1002               // "Check for updates"
+#define LNGTXT_MAIN_MENU_TXT 5000
+#define LNGTXT_PLSWAIT 5001
+#define LNGTXT_SETTINGS_TXT 5002
+#define LNGTXT_INSTALLING_TXT 5003
+#define LNGTXT_UPDATING_TXT 5004
 
-#define LNGTXT_ABOUT 1500                    // "About this app"
-#define LNGTXT_ABOUT_SQUAT 1501              // "Original idea: the_squat1115"
-#define LNGTXT_ABOUT_CY64 1502               // "App programmer: CyberYoshi64"
-#define LNGTXT_ABOUT_SRCCODE 1503            // "Certain pieces of the source code are from:"
-#define LNGTXT_ABOUT_SMILEBASIC 1504         // "SmileBASIC is a trademark of SmileBoom Co.Ltd."
-#define LNGTXT_ABOUT_BUILD 1505              // "Built with devkitPro"
+#define LNGTXT_MNG_PRJ 10000
+#define LNGTXT_DOWNLOAD_PRJ 10001
+#define LNGTXT_UPDATE_APP 10002
 
-#define NIEK_HAT_STERN_GESAGT 2000           // ;)
-#define L_IS_REAL_2501 2001                  // ;)
+#define LNGTXT_ABOUT 15000
+#define LNGTXT_ABOUT_SQUAT 15001
+#define LNGTXT_ABOUT_CY64 15002
+#define LNGTXT_ABOUT_SRCCODE 15003
+#define LNGTXT_ABOUT_SMILEBASIC 15004
+#define LNGTXT_ABOUT_BUILD 15005
 
-#define LNGTXT_PROCEED_ASK 3000              // Asking to proceed
+#define LNGTXT_PROCEED_ASK 16000
 
 // functions and their definitions
 const char* AppErrTbl(int errorcode, u8 lang);

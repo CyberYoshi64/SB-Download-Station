@@ -1,6 +1,8 @@
 #pragma once
 
 #include <3ds.h>
+#include <dirent.h>
+#include <unistd.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +34,14 @@ extern "C" {
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include "stringutils.hpp"
+#include "download.hpp"
+#include "inifile.h"
+#include "init.hpp"
+#include "cia.hpp"
+#include "keyboard.h"
+#include "sound.h"
+#include "thread.h"
+#include "screen.hpp"
 
 using json = nlohmann::json;
 

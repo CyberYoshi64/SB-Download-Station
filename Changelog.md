@@ -1,5 +1,9 @@
 # Changelog for SmileBASIC Download Station
 
+## 1/13/2021 - v0.1.0 ß1 - GUI remaster
+
+* GUI is now revamped and running independently of the rest of the app
+
 ## 10/28/2020 - v0.0.4 - Downloader and injecter update
 
 * Updated wait icon to be a spinning circle
