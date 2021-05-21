@@ -21,5 +21,6 @@
 
 void createThread(ThreadFunc entrypoint);
 void destroyThreads(void);
+size_t countThreads(void);
 
 #endif

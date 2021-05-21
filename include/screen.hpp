@@ -1,9 +1,17 @@
 #ifndef SCREEN_TOP_HPP
 #define SCREEN_TOP_HPP
+
+#define SCRTOPNOTIF_SFX_NONE	0
+#define SCRTOPNOTIF_SFX_ERROR	1
+#define SCRTOPNOTIF_SFX_WARNING	2
+#define SCRTOPNOTIF_SFX_MENU	3
+#define SCRTOPNOTIF_SFX_WRONG	4
+
 #include "common.hpp"
 
 extern bool drawingScreen;
 extern bool stopScreenUpdate;
+extern bool dspfirmfound;
 extern char errorstr[];
 extern int errorcode;
 extern int touchpt, touchpx, touchpy;

@@ -15,6 +15,9 @@ namespace Init {
 	void LaunchSound();
 	void StopSound();
 	void SwitchSound();
+	void ErrorSound();
+	void WarningSound();
+	void MenuSound();
 	void WaitSound();
 	void StopWaitSound();
 }

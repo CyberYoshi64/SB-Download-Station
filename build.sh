@@ -15,6 +15,7 @@ echo "  This process may take up to 30 minutes, depending on your computer's pow
 echo ""
 
 echo " --- Cleaning any compiled data for this project..."
+rm -rf build > /dev/null
 rm -rf release-data > /dev/null
 rm -rf romfs/gfx > /dev/null
 rm -rf assets/gfx/t3x.png > /dev/null

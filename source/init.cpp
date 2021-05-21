@@ -3,8 +3,8 @@
 
 #define CONFIG_3D_SLIDERSTATE (*(float *)0x1FF81080)
 
-bool drawingScreen;
-bool stopScreenUpdate;
+bool drawingScreen = true;
+bool stopScreenUpdate = true;
 static touchPosition touch;
 extern std::string top_screen_title;
 extern bool fadein;
@@ -54,6 +54,9 @@ sound *sfx_switch = NULL;
 sound *sfx_wrong = NULL;
 sound *sfx_back = NULL;
 sound *sfx_wait = NULL;
+sound *sfx_err = NULL;
+sound *sfx_menu = NULL;
+sound *sfx_warn = NULL;
 
 C2D_SpriteSheet sprites;
 
@@ -102,11 +105,14 @@ Result Init::Initialize() {
 		mus_bgm = new sound("romfs:/sound/bgm.wav", 15, true);
 		sfx_launch = new sound("romfs:/sound/launch.wav", 0, false);
 		sfx_select = new sound("romfs:/sound/select.wav", 1, false);
-		sfx_stop = new sound("romfs:/sound/stop.wav", 2, false);
-		sfx_switch = new sound("romfs:/sound/switch.wav", 3, false);
-		sfx_wrong = new sound("romfs:/sound/wrong.wav", 4, false);
-		sfx_back = new sound("romfs:/sound/back.wav", 5, false);
-		sfx_wait = new sound("romfs:/sound/wait.wav", 6, true);
+		sfx_stop = new sound("romfs:/sound/stop.wav", 1, false);
+		sfx_switch = new sound("romfs:/sound/switch.wav", 1, false);
+		sfx_wrong = new sound("romfs:/sound/wrong.wav", 2, false);
+		sfx_back = new sound("romfs:/sound/back.wav", 3, false);
+		sfx_err = new sound("romfs:/sound/error.wav", 4, false);
+		sfx_menu = new sound("romfs:/sound/menu.wav", 4, false);
+		sfx_warn = new sound("romfs:/sound/warn.wav", 4, false);
+		sfx_wait = new sound("romfs:/sound/wait.wav", 14, true);
 	}
 	
 	Meta::init();
@@ -117,7 +123,6 @@ Result Init::Initialize() {
 		u32 extdata_archive_lowpathdata[3] = {1,0x00001a1c,0};
 		appres=FSUSER_OpenArchive(&extarc, ARCHIVE_EXTDATA, (FS_Path){PATH_BINARY, 12, &extdata_archive_lowpathdata});
 	}
-	drawingScreen = false;
 	if (osGetKernelVersion() < SYSTEM_VERSION(2,57,0)){errorcode=99999999; exiting=true;}
 	return 0;
 }
@@ -125,7 +130,6 @@ Result Init::Initialize() {
 Result Init::MainLoop() {
 	// Initialize everything.
 	Initialize();
-	createThread((ThreadFunc)Screen::Thread);
 	top_screen_title = LngpackStr(LNGTXT_APPNAME, CFGLang);
 	// Loop as long as the status is not exiting.
 	while (aptMainLoop()) {
@@ -138,15 +142,14 @@ Result Init::MainLoop() {
 			break;
 		}
 		if (isInit) {
-			delay++;
-				Play_Music();
-				isInit = false;
+			Play_Music();
+			isInit = false;
 		}
-		gspWaitForVBlank();
 		if (stopScreenUpdate && !aptShouldJumpToHome()){
 			stopScreenUpdate=false;
 			createThread((ThreadFunc)Screen::Thread);
 		}
+		gspWaitForVBlank();
 	}
 	// Exit all services and exit the app.
 	destroyThreads();
@@ -188,6 +191,24 @@ void Init::SwitchSound(){
 	if (dspfirmfound){
 		sfx_switch->stop();
 		sfx_switch->play();
+	}
+}
+void Init::ErrorSound(){
+	if (dspfirmfound){
+		sfx_err->stop();
+		sfx_err->play();
+	}
+}
+void Init::WarningSound(){
+	if (dspfirmfound){
+		sfx_warn->stop();
+		sfx_warn->play();
+	}
+}
+void Init::MenuSound(){
+	if (dspfirmfound){
+		sfx_menu->stop();
+		sfx_menu->play();
 	}
 }
 void Init::WaitSound(){

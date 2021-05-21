@@ -42,6 +42,7 @@ extern "C" {
 #include "sound.h"
 #include "thread.h"
 #include "screen.hpp"
+#include "sb3files.hpp"
 
 using json = nlohmann::json;
 

@@ -29,6 +29,8 @@ char stringtochar_buf[8192];
 C2D_TextBuf sizeBuf;
 C2D_Font systemFont;
 int CFGLang;
+extern u64 topNotificationTimer;
+extern u8 topNotificationSfx;
 extern u32 topNotificationColor;
 extern std::string topNotificationText;
 extern std::string top_screen_title;
@@ -91,7 +93,7 @@ Result Gui::init(void) {
 					GX_TRANSFER_RAW_COPY(false)|
 					GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8)|
 					GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8)|
-					GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO);
+					GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_XY);
 	
 	top = C3D_RenderTargetCreate(240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH16);
 	C3D_RenderTargetClear(top, C3D_CLEAR_ALL, 0, 0);
@@ -109,6 +111,10 @@ Result Gui::init(void) {
 void Gui::exit(void) {
 	if (sprites) {
 		C2D_SpriteSheetFree(sprites);
+	}
+
+	if (systemFont) {
+		C2D_FontFree(systemFont);
 	}
 
 	if (meta_img){
@@ -240,6 +246,8 @@ float clamp(float num, float low, float high){
 	return num;
 }
 
+void Gui::_3dsAppletEvent(){}
+
 void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
 	maincnt++;
 	millisec += 1.0f/60.0f;
@@ -250,20 +258,22 @@ void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
 	touchpy = touch.py;
 	
 	if (hDown & KEY_Y){
-		top_screen_title="The \ue003 button was pressed!";
-		changeTopTitle=true;
+		printf("34536");
 	}
 	if (hDown & KEY_B){
-		top_screen_title="Wait, I can't go back! Just press START instead.";
-		changeTopTitle=true;
+		topNotificationTimer = 60;
+		topNotificationColor = 0x0080FFFF;
+		topNotificationText = "lmao, what is this notification. Who made this thing even?";
+		Init::StopWaitSound();
 	}
 	if (hDown & KEY_A){
-		top_screen_title="There is nothing to select here!";
-		changeTopTitle=true;
+		errorcode=10019991;
 	}
 	if (hDown & KEY_X){
-		top_screen_title="Visit new.smilebasicsource.com for more content!!!";
-		changeTopTitle=true;
+		topNotificationTimer = 180;
+		topNotificationColor = 0xFF4000FF;
+		topNotificationText = "Please start charging your console!";
+		Init::WaitSound();
 	}
 	
 	if (hDown & KEY_DOWN){

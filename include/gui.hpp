@@ -63,6 +63,7 @@ namespace Gui {
 	void sprite(int key, int x, int y, float sx = 1, float sy = 1);
 	void spriteTinted(int key, int x, int y, float sx = 1, float sy = 1, u32 color = 0xffffffff, float tintstrength = 1.0f);
 	void ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch);
+	void _3dsAppletEvent(void);
 }
 	void set_screen(C3D_RenderTarget * screen);
 	void Draw_Text(float x, float y, float size, u32 color, const char *text);

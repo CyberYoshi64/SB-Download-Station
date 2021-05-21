@@ -3,6 +3,7 @@
 #include <3ds.h>
 #include <citro2d.h>
 #include <citro3d.h>
+#include "screen.hpp"
 
 errorConf kerr;
 extern C3D_RenderTarget *top;
@@ -15,12 +16,10 @@ extern C3D_RenderTarget *bottom;
  * @return: std::string with user input
  */
 
-std::string keyboardInput(const char* hint, const char* content, u16 numChars=4096, u8 pswdmode=0, u32 feat=678, u32 filter=0, u8 numDigits=5, SwkbdValidInput IsValidInput=SWKBD_NOTEMPTY_NOTBLANK) {
-	C3D_FrameEnd(0);
+std::string keyboardInput(const char* hint, const char* content, u16 numChars, u8 pswdmode, u32 feat, u32 filter, u8 numDigits, SwkbdValidInput IsValidInput) {
 	SwkbdState keyboardState;
 	numChars=numChars-1 % 4096;
 	char input[numChars];
-
 	swkbdInit(&keyboardState, SWKBD_TYPE_NORMAL, 2, sizeof(input));
 	swkbdSetHintText(&keyboardState, hint);
 	swkbdSetInitialText(&keyboardState, content);
@@ -28,7 +27,6 @@ std::string keyboardInput(const char* hint, const char* content, u16 numChars=40
 	swkbdSetFeatures(&keyboardState, feat);
 	swkbdSetValidation(&keyboardState, IsValidInput, filter, numDigits);
 	swkbdInputText(&keyboardState, input, sizeof(input));
-
 	return std::string(input);
 }
 
@@ -39,10 +37,8 @@ std::string keyboardInput(const char* hint, const char* content, u16 numChars=40
  */
 
 int keyboardInputInt(const char* hint) {
-	C3D_FrameEnd(0);
 	SwkbdState keyState;
 	char input[4];
-
 	swkbdInit(&keyState, SWKBD_TYPE_NUMPAD, 2, 4);
 	swkbdSetHintText(&keyState, hint);
 
@@ -55,18 +51,15 @@ int keyboardInputInt(const char* hint) {
 		if(res > 255)
 			res = 255;
 	}
-
 	return res;
 }
 
-void showError(const char* errstr, int errcode=-1){
-	gspWaitForVBlank();
-	C3D_FrameEnd(0);
+void showError(const char* errstr, int errcode){
 	errorType typ=ERROR_TEXT_WORD_WRAP;
 	CFG_Language lang=CFG_LANGUAGE_EN;
 	errorInit(&kerr, typ, lang);
 	errorText(&kerr, errstr);
-	if (errcode != -1)
+	if (errcode >= 0 && errorcode <= 10009999)
 		errorCode(&kerr,errcode);
 	errorDisp(&kerr);
 }

@@ -35,3 +35,7 @@ void destroyThreads(void) {
 		threadFree(threads.at(i));
 	}
 }
+
+size_t countThreads(void) {
+	return threads.size();
+}

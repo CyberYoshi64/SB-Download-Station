@@ -1,37 +1,35 @@
 #include "common.hpp"
 #include "errtbl.hpp"
-
 u8 batteryLevel;
 u8 soundSliderLvl;
 bool wifiConnected;
 u32 wifiConnectedVal;
 u8 wifiStrength;
 bool headSetUsed;
-
 u8 mcureg0F;
-
 char tmpstr[4096];
-
 std::string top_screen_title = "";
 bool changeTopTitle = true;
-bool disableTopTitle = false;
-bool disableTopTxtBG = false;
-bool batBelow15 = false;
-bool batBelow5 = false;
-bool batBelow15f = false;
-bool batBelow5f = false;
-bool batCharge = false;
-bool batChargef = false;
+bool disableTopTitle;
+bool disableTopTxtBG;
+bool wifiStrengthLow;
+bool batBelow0;
+bool batBelow1;
+bool batBelow0c;
+bool batBelow1c;
+bool batCharge;
+bool batChargeS;
+bool batChargeE;
+bool dspfirmfoundF;
 u64 topTextID = 1;
 std::string hot_potato_toptitle = "";
 float topTitleAnimTime = 1.0f;
 float topTextBGAnimTime = 1.0f;
 float topNotifAnimTime = 0.0f;
-
 u64 topNotificationTimer = 0;
 u32 topNotificationColor = 0;
+u8 topNotificationSfx = 0;
 std::string topNotificationText = "";
-
 u8 topNotif_red = 0;
 u8 topNotif_grn = 0;
 u8 topNotif_blu = 0;
@@ -40,22 +38,55 @@ u64 topNotifTimer = 0;
 std::string hot_potato_topnotif = "";
 
 void deviceMkEvent(){
-	if (batBelow15 && !batCharge){
-		topNotificationTimer = 180;
-		topNotificationColor = 0xFFA000FF;
-		topNotificationText = "Warning! The battery is below 15%!";
-	}
-	if (batBelow5 && !batCharge){
+	if (batBelow0 && !batCharge){
 		topNotificationTimer = 300;
+		topNotificationColor = 0xFFA000FF;
+		topNotificationText = "Warning! The battery is below 10%!";
+		topNotificationSfx = SCRTOPNOTIF_SFX_WARNING;
+	}
+	if (batBelow1 && !batCharge){
+		topNotificationTimer = 600;
 		topNotificationColor = 0xFF4000FF;
 		topNotificationText = "Please charge your console now.";
+		topNotificationSfx = SCRTOPNOTIF_SFX_ERROR;
+	}
+	if (batChargeS){
+		topNotificationTimer = 180;
+		topNotificationColor = 0x4060FFC0;
+		topNotificationText = "Charging battery... "+std::to_string(batteryLevel)+"%";
+		topNotificationSfx = SCRTOPNOTIF_SFX_MENU;
+	}
+	if (batChargeE && (batteryLevel < 100)){
+		topNotificationTimer = 300;
+		topNotificationColor = 0xFF8040FF;
+		topNotificationText = "The charging cable was unexpectedly unplugged.";
+		topNotificationSfx = SCRTOPNOTIF_SFX_WARNING;
+	}
+	if (wifiStrengthLow){
+		topNotificationTimer = 300;
+		topNotificationColor = 0xFF8000FF;
+		topNotificationText = "Wi-Fi strength is weak. Please get closer to the access point.";
+		topNotificationSfx = SCRTOPNOTIF_SFX_WARNING;
+	}
+	if (!dspfirmfound && !dspfirmfoundF) {
+		topNotificationTimer = 900;
+		topNotificationColor = 0xFF0000FF;
+		topNotificationText = "The sound output has been disabled.";
+		dspfirmfoundF = true;
 	}
 }
 
 void drawTextInBodyWithID(u64 id){
 	switch (id){
 		case 0:
-			sprintf(tmpstr, "Battery voltage: %d\nSound slider: %d\nWifi Connected? %d\nStrength: %d\nHeadset plugged in? %d\n\nCharging!?: %s", batteryLevel, soundSliderLvl, wifiConnected, wifiStrength, headSetUsed, batCharge ? "true" : "false");
+			sprintf(tmpstr, \
+			"Battery voltage: %d\n" \
+			"Sound slider: %d\n" \
+			"Wifi Connected? %d\n"\
+			"Strength: %d\n"\
+			"Headset plugged in? %d\n"\
+			"Charging!?: %s",\
+			batteryLevel, soundSliderLvl, wifiConnected, wifiStrength, headSetUsed, batCharge ? "true" : "false");
 			DrawStrBoxCC(200, 121, FONT_SIZE_12, C2D_Color32f(1,1,1,topTextBGAnimTime), tmpstr, 360, 136);
 			break;
 		case 1:
@@ -68,10 +99,17 @@ void drawTextInBodyWithID(u64 id){
 	}
 }
 
+void topNotificationPlaySfx(){
+	switch(topNotificationSfx){
+		case SCRTOPNOTIF_SFX_ERROR: Init::ErrorSound(); break;
+		case SCRTOPNOTIF_SFX_WARNING: Init::WarningSound(); break;
+		case SCRTOPNOTIF_SFX_MENU: Init::MenuSound(); break;
+		case SCRTOPNOTIF_SFX_WRONG: Init::WrongSound(); break;
+	}
+}
+
 void TopScr(){
-	
 	Gui::sprite(sprites_ic_bg_scr_top_idx, 0, 0, 1, 1);
-	
 	if (topNotifAnimTime < 0.001f){
 		if (topNotificationText != ""){
 			topNotifTimer = topNotificationTimer - 1;
@@ -82,6 +120,8 @@ void TopScr(){
 			topNotif_alp = (topNotificationColor >>  0) & 255;
 			topNotificationTimer= 0;
 			topNotificationText = "";
+			topNotificationPlaySfx();
+			topNotificationSfx  = 0;
 		}
 	} else if (topNotifTimer != 0) {
 		topNotifTimer--;
@@ -98,18 +138,21 @@ void TopScr(){
 		DrawStrBoxC(200, 32.0f - topTitleAnimTime * 8.0f, FONT_SIZE_18, C2D_Color32f(1,1,1,topTitleAnimTime), hot_potato_toptitle.c_str(), 360, 1);
 	}
 	
+	if (topNotifAnimTime > 0.0009f){
+		Gui::spriteTinted(sprites_ic_bg_gui_top_msg_idx, 0, 200, 1, 1, C2D_Color32(topNotif_red, topNotif_grn, topNotif_blu, topNotifAnimTime * topNotif_alp), 1);
+		DrawStrBox(8, 224.0f - topNotifAnimTime * 8.0f, 0.5f, C2D_Color32f(1,1,1,topNotifAnimTime), hot_potato_topnotif.c_str(), 320, 1);
+	}
+
 	if (topTextBGAnimTime > 0.005f){
 		Gui::spriteTinted(sprites_ic_textbody_idx, 24, 60, 1, 1, C2D_Color32f(1,1,1,topTextBGAnimTime),0.0f);
 		drawTextInBodyWithID(topTextID);
 	}
 	
-	if (topNotifAnimTime > 0.0009f){
-		Gui::spriteTinted(sprites_ic_bg_gui_top_msg_idx, 0, 192, 1, 1, C2D_Color32(topNotif_red, topNotif_grn, topNotif_blu, topNotifAnimTime * topNotif_alp), 1);
-		DrawStrBox(8, 224.0f - topNotifAnimTime * 8.0f, 0.5f, C2D_Color32f(1,1,1,topNotifAnimTime), hot_potato_topnotif.c_str(), 320, 1);
-	}
-	
 	topTitleAnimTime=(topTitleAnimTime * 2.0f + (float)(!changeTopTitle && !disableTopTitle)) / 3.0f;
-	topNotifAnimTime=(topNotifAnimTime * 5.0f + (float)(!!topNotifTimer && !topNotificationTimer)) / 6.0f;
+	switch(!!topNotificationTimer){
+		case 0: topNotifAnimTime=(topNotifAnimTime * 5.0f + (float)(!!topNotifTimer)) / 6.0f; break;
+		case 1: topNotifAnimTime=topNotifAnimTime * 0.5f; break;
+	}
 	topTextBGAnimTime=(topTextBGAnimTime * 2.0f + (float)(!disableTopTxtBG)) / 3.0f;
 }
 
@@ -121,23 +164,26 @@ void BotScr(){
 }
 
 void Screen::Thread(){
-	fadea=1.0f;
+	fadea=1.0f; gspWaitForVBlank();
 	if (errorcode){
 		showError(AppErrTbl(errorcode, 1),errorcode);
 	}
-	while ((!exiting && !aptShouldJumpToHome()) || ((exiting || aptShouldJumpToHome()) && fadea<0.99f)){
+	while ((!exiting && !aptShouldJumpToHome()) || (exiting && fadea<0.99f)){
 		MCUHWC_ReadRegister(0xf,&mcureg0F,1);
+		batChargeS = ((mcureg0F >> 4) & 1) && !batCharge;
+		batChargeE = !((mcureg0F >> 4) & 1) && batCharge;
 		batCharge = (mcureg0F >> 4) & 1;
 		MCUHWC_GetBatteryLevel(&batteryLevel);
 		MCUHWC_GetSoundSliderLevel(&soundSliderLvl);
 		ACU_GetStatus(&wifiConnectedVal);
 		wifiConnected=(bool)(wifiConnectedVal==3);
+		wifiStrengthLow = (osGetWifiStrength() < 2 && wifiStrength >= 3);
 		wifiStrength=osGetWifiStrength();
 		headSetUsed=osIsHeadsetConnected();
-		batBelow15f = batteryLevel <= 15;
-		batBelow5f = batteryLevel <= 5;
-		batBelow15 = (!(batteryLevel <= 15) != !batBelow15f);
-		batBelow5 = (!(batteryLevel <= 5) != !batBelow5f);
+		batBelow0 = ((batteryLevel <= 10) && !batBelow0c);
+		batBelow1 = ((batteryLevel <= 5) && !batBelow1c);
+		batBelow0c = batteryLevel <= 10;
+		batBelow1c = batteryLevel <= 5;
 		
 		deviceMkEvent();
 		
@@ -150,11 +196,6 @@ void Screen::Thread(){
 		
 		if (exiting){
 			Draw_Rect(0,0,400,240,C2D_Color32(fader,fadeg,fadeb,fadea * 255.0f));
-		} else {
-			Draw_Rect(0,0,400,240,C2D_Color32(fader,fadeg,fadeb,fadea * 128.0f));
-			Draw_Rect(0,100,400,40,C2D_Color32(fader,fadeg,fadeb,fadea * 200.0f));
-			DrawStrBoxC(200, 104, FONT_SIZE_12, C2D_Color32f(1,1,1,fadea * 1.0f), "Please don't disconnect from the access point.", 360, 1);
-			DrawStrBoxC(200, 120, FONT_SIZE_12, C2D_Color32f(1,1,1,fadea * 0.6f), "Doing so could corrupt all of your projects.", 360, 1);
 		}
 		
 		// bottom screen
@@ -163,15 +204,15 @@ void Screen::Thread(){
 		
 		if (exiting){
 			Draw_Rect(0,0,320,240,C2D_Color32(fader,fadeg,fadeb,fadea * 255.0f));
-		} else {
-			Draw_Rect(0,0,320,240,C2D_Color32(fader,fadeg,fadeb,fadea * 128.0f));
 		}
 		
 		
 		C3D_FrameEnd(0);
 		if (errorcode){
-			showError(AppErrTbl(errorcode, 1),errorcode);
+			showError(AppErrTbl(errorcode, CFGLang),errorcode);
+			errorcode = 0;
 		}
+		Gui::_3dsAppletEvent();
 		fadea=(fadea * 3.0f + ((exiting || aptShouldJumpToHome()) * 1.0f)) / 4.0f;
 	}
 	stopScreenUpdate=aptShouldJumpToHome();
