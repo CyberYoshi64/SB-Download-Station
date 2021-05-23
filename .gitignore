@@ -15,6 +15,7 @@
 *.so
 *.dylib
 *.dll
+*.elf
 
 # Fortran module files
 *.mod
@@ -32,15 +33,13 @@
 *.app
 
 temp/
-
 *.del
-
 output/
-
 build/
-
 .vscode/
-
 *.bak
-
 *.0
+*.t3x.png
+*.log
+romfs/gfx/
+release-data/

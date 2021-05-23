@@ -1,4 +1,3 @@
-#include "animation.hpp"
 #include "gui.hpp"
 #include "init.hpp"
 #include "keyboard.h"
@@ -6,16 +5,22 @@
 #include "cia.hpp"
 #include "download.hpp"
 #include "thread.h"
-#include "cyvar.hpp"
-#include "screen.hpp"
 #include <assert.h>
 #include <stdarg.h>
 #include <unistd.h>
 #include <fstream>
 #include <dirent.h>
 #include <cmath>
-static C2D_SpriteSheet sprites;
-static C2D_SpriteSheet meta_img;
+#include "dialog.hpp"
+
+C2D_SpriteSheet gfx_scrbg;
+C2D_SpriteSheet gfx_button;
+C2D_SpriteSheet gfx_common;
+C2D_SpriteSheet gfx_cy64;
+C2D_SpriteSheet gfx_ghud;
+C2D_SpriteSheet meta_img;
+C2D_SpriteSheet gfx_appdlg;
+
 char errorstr[2048];
 int errorcode=0;
 int touchpt, touchpx, touchpy;
@@ -60,6 +65,7 @@ bool ExtDataFolderDeleteDialog;
 int retry;
 u16 downloadNo=1; /* Initialising the file count with 1, to prevent div by 0 */
 u16 downloadedFiles;
+u8 dlgResult;
 
 int down_y;
 size_t down_s;
@@ -93,7 +99,7 @@ Result Gui::init(void) {
 					GX_TRANSFER_RAW_COPY(false)|
 					GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8)|
 					GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8)|
-					GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_XY);
+					GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO);
 	
 	top = C3D_RenderTargetCreate(240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH16);
 	C3D_RenderTargetClear(top, C3D_CLEAR_ALL, 0, 0);
@@ -103,47 +109,54 @@ Result Gui::init(void) {
 	C3D_RenderTargetClear(bottom, C3D_CLEAR_ALL, 0, 0);
 	C3D_RenderTargetSetOutput(bottom, GFX_BOTTOM, GFX_LEFT, transFlags);
 	
-	sizeBuf = C2D_TextBufNew(8192);
-	sprites   = C2D_SpriteSheetLoad("romfs:/gfx/sprites.t3x");
-	systemFont= C2D_FontLoad("romfs:/font/0.bcfnt");
+	sizeBuf		= C2D_TextBufNew(8192);
+	systemFont	= C2D_FontLoad("romfs:/font/0.bcfnt");
+	gfx_scrbg	= C2D_SpriteSheetLoad("romfs:/gfx/scrbg.t3x");
+	gfx_common	= C2D_SpriteSheetLoad("romfs:/gfx/common.t3x");
+	gfx_button	= C2D_SpriteSheetLoad("romfs:/gfx/button.t3x");
+	gfx_cy64	= C2D_SpriteSheetLoad("romfs:/gfx/cy64.t3x");
+	gfx_ghud	= C2D_SpriteSheetLoad("romfs:/gfx/ghud.t3x");
+	gfx_appdlg	= C2D_SpriteSheetLoad("romfs:/gfx/appdlg.t3x");
 	return 0;
 }
 void Gui::exit(void) {
-	if (sprites) {
-		C2D_SpriteSheetFree(sprites);
-	}
-
-	if (systemFont) {
-		C2D_FontFree(systemFont);
-	}
-
-	if (meta_img){
-		C2D_SpriteSheetFree(meta_img);
-	}
-
+	if (gfx_scrbg)	{C2D_SpriteSheetFree(gfx_scrbg);}
+	if (gfx_common)	{C2D_SpriteSheetFree(gfx_common);}
+	if (gfx_cy64)	{C2D_SpriteSheetFree(gfx_cy64);}
+	if (gfx_button)	{C2D_SpriteSheetFree(gfx_button);}
+	if (gfx_ghud)	{C2D_SpriteSheetFree(gfx_ghud);}
+	if (systemFont)	{C2D_FontFree(systemFont);}
+	if (meta_img)	{C2D_SpriteSheetFree(meta_img);}
 	C2D_TextBufDelete(sizeBuf);
 	C2D_Fini();
 	C3D_Fini();
 }
 
-void set_screen(C3D_RenderTarget * screen) {
+void set_screen(C3D_RenderTarget* screen) {
 	C2D_SceneBegin(screen);
 }
 
-void Gui::sprite(int key, int x, int y, float sx, float sy) {
+void Gui::sprite(C2D_SpriteSheet* sheet, int key, int x, int y, float sx, float sy) {
 	if (key == sprites_res_null_idx) {
 		return;
 	} else { // standard case
-		C2D_DrawImageAt(C2D_SpriteSheetGetImage(sprites, key), x, y, 0.5f, nullptr, sx, sy);
+		C2D_DrawImageAt(C2D_SpriteSheetGetImage(*sheet, key), x, y, 0.5f, nullptr, sx, sy);
 	}
 }
-void Gui::spriteTinted(int key, int x, int y, float sx, float sy, u32 color, float tintstrength) {
+void Gui::spriteTinted(C2D_SpriteSheet* sheet, int key, int x, int y, float sx, float sy, u32 color, float tintstrength) {
 	C2D_ImageTint tint;
 	C2D_PlainImageTint(&tint, color, tintstrength);
 	if (key == sprites_res_null_idx) {
 		return;
 	} else { // standard case
-		C2D_DrawImageAt(C2D_SpriteSheetGetImage(sprites, key), x, y, 0.5f, &tint, sx, sy);
+		C2D_DrawImageAt(C2D_SpriteSheetGetImage(*sheet, key), x, y, 0.5f, &tint, sx, sy);
+	}
+}
+void Gui::spriteWithTint(C2D_SpriteSheet* sheet, int key, int x, int y, float sx, float sy, C2D_ImageTint tint) {
+	if (key == sprites_res_null_idx) {
+		return;
+	} else { // standard case
+		C2D_DrawImageAt(C2D_SpriteSheetGetImage(*sheet, key), x, y, 0.5f, &tint, sx, sy);
 	}
 }
 void Gui::gcls(C3D_RenderTarget * screen, u32 color){
@@ -246,6 +259,10 @@ float clamp(float num, float low, float high){
 	return num;
 }
 
+bool TouchedHitbox(bool tt, u32 tx, u32 ty, u32 x, u32 y, u32 w, u32 h){
+	return tt&&(clamp(tx,x,x+w-1)==tx && clamp(ty,y,y+h-1)==ty);
+}
+
 void Gui::_3dsAppletEvent(){}
 
 void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
@@ -257,23 +274,54 @@ void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
 	touchpx = touch.px;
 	touchpy = touch.py;
 	
-	if (hDown & KEY_Y){
-		printf("34536");
-	}
 	if (hDown & KEY_B){
 		topNotificationTimer = 60;
 		topNotificationColor = 0x0080FFFF;
 		topNotificationText = "lmao, what is this notification. Who made this thing even?";
-		Init::StopWaitSound();
+		Init::OkSound();
 	}
 	if (hDown & KEY_A){
-		errorcode=10019991;
+		Dialog::Clear();
+		Dialog::MainWGiven("This is a test dialog.\n\nPress \uE000 or touch the \"Okay\" button to close it.");
+		Dialog::UseAButtonWGiven("Okay");
+		Dialog::UseBButtonWGiven("Cancel");
+		Dialog::PrepareDisplay();
+		Init::MenuSound();
+		dlgResult=Dialog::Show();
+		if (dlgResult == 1){
+			Dialog::Clear();
+			Dialog::MainWGiven("This particular dialog is testing line breaks from long texts. Now I have no idea how to actually do it, lmao.");
+			Dialog::UseAButtonWGiven("button only (\uE001 not available)");
+			Dialog::PrepareDisplay();
+			Init::WarningSound();
+			dlgResult=Dialog::Show();
+			Dialog::Clear();
+			Dialog::MainWGiven("1\n2\n3\n4\n5\n6");
+			Dialog::UseBButtonWGiven("Close");
+			Dialog::PrepareDisplay();
+			Init::ErrorSound();
+			dlgResult=Dialog::Show();
+			Dialog::Clear();
+			Dialog::WaitForBool(&stopScreenUpdate, true);
+			Dialog::MainWGiven("Please wait...");
+			Dialog::PrepareDisplay();
+			Dialog::Show();
+		} else {
+			Dialog::Clear();
+			Dialog::MainWGiven("Do you want to exit SmileBASIC Download Station?");
+			Dialog::UseAButtonWGiven("Yes");
+			Dialog::UseBButtonWGiven("No");
+			Dialog::PrepareDisplay();
+			Init::WarningSound();
+			dlgResult=Dialog::Show();
+			if (dlgResult == 1) exiting=true;
+		}
 	}
 	if (hDown & KEY_X){
 		topNotificationTimer = 180;
 		topNotificationColor = 0xFF4000FF;
 		topNotificationText = "Please start charging your console!";
-		Init::WaitSound();
+		Init::ErrorSound();
 	}
 	
 	if (hDown & KEY_DOWN){
@@ -304,7 +352,7 @@ void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
 		exiting=true;
 	}
 }
-void ScreenLogic_bak(u32 hDown, u32 hHeld, touchPosition touch){
+/* void ScreenLogic_bak(u32 hDown, u32 hHeld, touchPosition touch){
 	maincnt++;
 	millisec += 1/60;
 	touchox = touchpx;
@@ -335,7 +383,7 @@ void ScreenLogic_bak(u32 hDown, u32 hHeld, touchPosition touch){
 	}
 
 	if (pageid==0 && touchot && !touchpt && buttonpressed==0 && !exiting){
-		Init::LaunchSound();
+		Init::OkSound();
 		updateApp("");
 		if (errorcode==0){
 			exiting=true;
@@ -344,7 +392,7 @@ void ScreenLogic_bak(u32 hDown, u32 hHeld, touchPosition touch){
 	}
 
 	if (pageid==0 && touchot && !touchpt && buttonpressed==1 && !exiting){
-		Init::LaunchSound();
+		Init::OkSound();
 		pageid=1; pagex=500;
 		if (meta_total == 0){
 			Meta::prepareArrays(getProjectList());
@@ -363,7 +411,7 @@ void ScreenLogic_bak(u32 hDown, u32 hHeld, touchPosition touch){
 	}
 
 	if (pageid==0 && touchot && !touchpt && buttonpressed==2 && !exiting){
-		Init::LaunchSound();
+		Init::OkSound();
 	}
 
 	if (pageid==1 && !down_show_props && (hDown & KEY_B) && !exiting){
@@ -396,14 +444,14 @@ void ScreenLogic_bak(u32 hDown, u32 hHeld, touchPosition touch){
 	}
 
 	if (pageid==1 && !down_show_props && (hDown & KEY_A) && !exiting){
-		Init::LaunchSound();
+		Init::OkSound();
 		setMessageText(meta_desc[down_s]);
 		down_show_props=true;
 	}
 
 	if (pageid==1 && ((touchot && !touchpt && buttonpressed==3) || (!(hHeld & KEY_A) && buttonpressed==4)) && !exiting){
 		buttonpressed=-1;
-		Init::LaunchSound();
+		Init::OkSound();
 		down_show_props=false; retry=1; ExtDataFolderDeleteDialog=true;
 		do {
 			performProjectDownload(meta_prjn[down_s]);
@@ -429,4 +477,4 @@ void ScreenLogic_bak(u32 hDown, u32 hHeld, touchPosition touch){
 	while((down_s*72 - down_vy) > 100){down_vy++;}
 	down_y = (down_y * 3.0f + down_vy)/4.0f;
 
-}
+} */

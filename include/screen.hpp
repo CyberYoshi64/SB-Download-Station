@@ -9,6 +9,14 @@
 
 #include "common.hpp"
 
+extern C2D_SpriteSheet gfx_scrbg;
+extern C2D_SpriteSheet gfx_button;
+extern C2D_SpriteSheet gfx_common;
+extern C2D_SpriteSheet gfx_cy64;
+extern C2D_SpriteSheet gfx_ghud;
+extern C2D_SpriteSheet gfx_appdlg;
+extern C2D_SpriteSheet meta_img;
+
 extern bool drawingScreen;
 extern bool stopScreenUpdate;
 extern bool dspfirmfound;

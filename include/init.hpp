@@ -12,7 +12,7 @@ namespace Init {
 	void SelSound();
 	void BackSound();
 	void WrongSound();
-	void LaunchSound();
+	void OkSound();
 	void StopSound();
 	void SwitchSound();
 	void ErrorSound();
@@ -20,6 +20,8 @@ namespace Init {
 	void MenuSound();
 	void WaitSound();
 	void StopWaitSound();
+	void DlgWaitSound();
+	void StopDlgWaitSound();
 }
 
 #endif

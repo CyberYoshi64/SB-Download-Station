@@ -1,0 +1,6 @@
+--atlas -f rgba -z auto -p appdlg.t3x.png
+appdlg/ic_dlg_body.png
+appdlg/ic_dlg_btn_div.png
+appdlg/ic_dlg_btn.png
+appdlg/ic_dlg_btn_l.png
+appdlg/ic_dlg_btn_r.png

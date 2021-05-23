@@ -1,8 +1,6 @@
 #pragma once
 
 #include <3ds.h>
-#include <dirent.h>
-#include <unistd.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,24 +23,32 @@ extern "C" {
 #include <vector>
 #include <regex>
 
-#include "gfx.hpp"
-#include "gui.hpp"
-#include "cyvar.hpp"
-#include "json.hpp"
-#include "msg.hpp"
-#include "meta.hpp"
-#include <curl/curl.h>
-#include <curl/easy.h>
-#include "stringutils.hpp"
-#include "download.hpp"
 #include "inifile.h"
-#include "init.hpp"
-#include "cia.hpp"
 #include "keyboard.h"
 #include "sound.h"
 #include "thread.h"
+#include "sha256.h"
+#include "gfx.hpp"
+#include "gui.hpp"
+#include "json.hpp"
+#include "meta.hpp"
+#include "stringutils.hpp"
+#include <curl/curl.h>
+#include <curl/easy.h>
+#include "dialog.hpp"
+#include "download.hpp"
+#include "cia.hpp"
 #include "screen.hpp"
+#include "errtbl.hpp"
 #include "sb3files.hpp"
+
+// Spritesheets.
+#include "button.h"
+#include "common.h"
+#include "cy64.h"
+#include "ghud.h"
+#include "scrbg.h"
+#include "appdlg.h"
 
 using json = nlohmann::json;
 

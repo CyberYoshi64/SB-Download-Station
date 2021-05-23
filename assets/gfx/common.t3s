@@ -1,0 +1,8 @@
+--atlas -f etc1a4 -z auto -p common.t3x.png
+common/ic_back.png
+common/ic_div_l.png
+common/ic_div_m.png
+common/ic_settings.png
+common/ic_textbody.png
+common/waiticon_bg.png
+common/waiticon.png

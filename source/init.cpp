@@ -1,5 +1,14 @@
 #include "common.hpp"
-#include "errtbl.hpp"
+#include "download.hpp"
+#include "inifile.h"
+#include "init.hpp"
+#include "cia.hpp"
+#include "keyboard.h"
+#include "sound.h"
+#include "thread.h"
+#include <3ds.h>
+#include <dirent.h>
+#include <unistd.h>
 
 #define CONFIG_3D_SLIDERSTATE (*(float *)0x1FF81080)
 
@@ -47,7 +56,7 @@ bool waiting = false;
 
 // Music and sound effects.
 sound *mus_bgm = NULL;
-sound *sfx_launch = NULL;
+sound *sfx_ok = NULL;
 sound *sfx_select = NULL;
 sound *sfx_stop = NULL;
 sound *sfx_switch = NULL;
@@ -57,6 +66,7 @@ sound *sfx_wait = NULL;
 sound *sfx_err = NULL;
 sound *sfx_menu = NULL;
 sound *sfx_warn = NULL;
+sound *sfx_dlgwait = NULL;
 
 C2D_SpriteSheet sprites;
 
@@ -73,7 +83,7 @@ Result Init::Initialize() {
 	romfsInit();
 	Gui::init();
 	init_res = cfguInit();
-	if (R_SUCCEEDED(init_res)) {
+	if (R_SUCCEEDED(init_res)){
 		u8 tmplng=0;
 		CFGU_GetSystemLanguage(&tmplng);
 		CFGLang=(int)tmplng;
@@ -103,7 +113,7 @@ Result Init::Initialize() {
 	// Load the sound effects if DSP is available.
 	if (dspfirmfound){
 		mus_bgm = new sound("romfs:/sound/bgm.wav", 15, true);
-		sfx_launch = new sound("romfs:/sound/launch.wav", 0, false);
+		sfx_ok = new sound("romfs:/sound/ok.wav", 0, false);
 		sfx_select = new sound("romfs:/sound/select.wav", 1, false);
 		sfx_stop = new sound("romfs:/sound/stop.wav", 1, false);
 		sfx_switch = new sound("romfs:/sound/switch.wav", 1, false);
@@ -113,6 +123,7 @@ Result Init::Initialize() {
 		sfx_menu = new sound("romfs:/sound/menu.wav", 4, false);
 		sfx_warn = new sound("romfs:/sound/warn.wav", 4, false);
 		sfx_wait = new sound("romfs:/sound/wait.wav", 14, true);
+		sfx_dlgwait = new sound("romfs:/sound/dialogwait.wav", 13, true);
 	}
 	
 	Meta::init();
@@ -132,7 +143,7 @@ Result Init::MainLoop() {
 	Initialize();
 	top_screen_title = LngpackStr(LNGTXT_APPNAME, CFGLang);
 	// Loop as long as the status is not exiting.
-	while (aptMainLoop()) {
+	while (aptMainLoop()&&!aptShouldClose()) {
 		hidScanInput();
 		u32 hHeld = hidKeysHeld();
 		u32 hDown = hidKeysDown();
@@ -175,10 +186,10 @@ void Init::WrongSound(){
 		sfx_wrong->play();
 	}
 }
-void Init::LaunchSound(){
+void Init::OkSound(){
 	if (dspfirmfound){
-		sfx_launch->stop();
-		sfx_launch->play();
+		sfx_ok->stop();
+		sfx_ok->play();
 	}
 }
 void Init::StopSound(){
@@ -223,6 +234,16 @@ void Init::StopWaitSound(){
 		waiting=false;
 	}
 }
+void Init::DlgWaitSound(){
+	if (dspfirmfound){
+		sfx_dlgwait->play();
+	}
+}
+void Init::StopDlgWaitSound(){
+	if (dspfirmfound){
+		sfx_dlgwait->stop();
+	}
+}
 
 Result Init::Exit() {
 
@@ -239,13 +260,14 @@ Result Init::Exit() {
 	}
 
 	delete mus_bgm;
-	delete sfx_launch;
+	delete sfx_ok;
 	delete sfx_select;
 	delete sfx_stop;
 	delete sfx_switch;
 	delete sfx_wrong;
 	delete sfx_back;
 	delete sfx_wait;
+	delete sfx_dlgwait;
 	if (dspfirmfound) {
 		ndspExit();
 	}

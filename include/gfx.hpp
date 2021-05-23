@@ -1,8 +1,6 @@
 #ifndef GFX_HPP
 #define GFX_HPP
 
-#include "sprites.h"
-
 #include <3ds.h>
 #include <citro2d.h>
 

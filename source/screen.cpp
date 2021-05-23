@@ -1,5 +1,15 @@
 #include "common.hpp"
-#include "errtbl.hpp"
+#include "download.hpp"
+#include "inifile.h"
+#include "init.hpp"
+#include "keyboard.h"
+#include "sound.h"
+#include "thread.h"
+#include <3ds.h>
+#include <dirent.h>
+#include <unistd.h>
+#include "dialog.hpp"
+
 u8 batteryLevel;
 u8 soundSliderLvl;
 bool wifiConnected;
@@ -109,7 +119,7 @@ void topNotificationPlaySfx(){
 }
 
 void TopScr(){
-	Gui::sprite(sprites_ic_bg_scr_top_idx, 0, 0, 1, 1);
+	Gui::sprite(&gfx_scrbg, scrbg_top_idx, 0, 0, 1, 1);
 	if (topNotifAnimTime < 0.001f){
 		if (topNotificationText != ""){
 			topNotifTimer = topNotificationTimer - 1;
@@ -134,17 +144,17 @@ void TopScr(){
 	}
 	
 	if (topTitleAnimTime > 0.0009f){
-		Gui::sprite(sprites_ic_div_l_idx, 200.0f - topTitleAnimTime * 200.0f, 56.0f - topTitleAnimTime * 8.0f, topTitleAnimTime, topTitleAnimTime);
+		Gui::sprite(&gfx_common,common_ic_div_l_idx, 200.0f - topTitleAnimTime * 200.0f, 56.0f - topTitleAnimTime * 8.0f, topTitleAnimTime, topTitleAnimTime);
 		DrawStrBoxC(200, 32.0f - topTitleAnimTime * 8.0f, FONT_SIZE_18, C2D_Color32f(1,1,1,topTitleAnimTime), hot_potato_toptitle.c_str(), 360, 1);
 	}
 	
 	if (topNotifAnimTime > 0.0009f){
-		Gui::spriteTinted(sprites_ic_bg_gui_top_msg_idx, 0, 200, 1, 1, C2D_Color32(topNotif_red, topNotif_grn, topNotif_blu, topNotifAnimTime * topNotif_alp), 1);
+		Gui::spriteTinted(&gfx_ghud,ghud_ic_bg_gui_top_msg_idx, 0, 200, 1, 1, C2D_Color32(topNotif_red, topNotif_grn, topNotif_blu, topNotifAnimTime * topNotif_alp), 1);
 		DrawStrBox(8, 224.0f - topNotifAnimTime * 8.0f, 0.5f, C2D_Color32f(1,1,1,topNotifAnimTime), hot_potato_topnotif.c_str(), 320, 1);
 	}
 
 	if (topTextBGAnimTime > 0.005f){
-		Gui::spriteTinted(sprites_ic_textbody_idx, 24, 60, 1, 1, C2D_Color32f(1,1,1,topTextBGAnimTime),0.0f);
+		Gui::spriteTinted(&gfx_common,common_ic_textbody_idx, 24, 60, 1, 1, C2D_Color32f(1,1,1,topTextBGAnimTime),0.0f);
 		drawTextInBodyWithID(topTextID);
 	}
 	
@@ -157,9 +167,9 @@ void TopScr(){
 }
 
 void BotScr(){
-	Gui::sprite(sprites_ic_bg_scr_bot_idx, 0, 0, 1, 1);
-	Gui::sprite(sprites_ic_div_m_idx, 0, 48, 1, 1);
-	Gui::sprite(sprites_ic_textbody_idx, 24, 60, 0.8, 1);
+	Gui::sprite(&gfx_scrbg,scrbg_bottom_idx, 0, 0, 1, 1);
+	Gui::sprite(&gfx_common,common_ic_div_m_idx, 0, 48, 1, 1);
+	Gui::sprite(&gfx_common,common_ic_textbody_idx, 24, 60, 0.8, 1);
 	DrawStrBoxC(160, 24, FONT_SIZE_11, -1, "Warning!\n\nThis version of SmileBASIC Download Station\nis currently just a dummy and will not do\nanything.\n\nlmao.\n\n\n\nSorry for the inconvenience.", 240, 1.2f);
 }
 
@@ -168,7 +178,7 @@ void Screen::Thread(){
 	if (errorcode){
 		showError(AppErrTbl(errorcode, 1),errorcode);
 	}
-	while ((!exiting && !aptShouldJumpToHome()) || (exiting && fadea<0.99f)){
+	while (((!exiting && !aptShouldJumpToHome()) || (exiting && fadea<0.99f)) && !aptShouldClose()){
 		MCUHWC_ReadRegister(0xf,&mcureg0F,1);
 		batChargeS = ((mcureg0F >> 4) & 1) && !batCharge;
 		batChargeE = !((mcureg0F >> 4) & 1) && batCharge;
@@ -202,6 +212,10 @@ void Screen::Thread(){
 		set_screen(bottom);
 		BotScr();
 		
+		if (Dialog::IsDialogShown()) {
+			Dialog::Display();
+		}
+
 		if (exiting){
 			Draw_Rect(0,0,320,240,C2D_Color32(fader,fadeg,fadeb,fadea * 255.0f));
 		}

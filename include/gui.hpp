@@ -36,14 +36,14 @@
 #include <unordered_map>
 #include <wchar.h>
 #include "common.hpp"
-
-// Spritesheets.
-#include "sprites.h"
 #include "colors.hpp"
 
 // emulated
 #define sprites_res_null_idx 500
 
+#define SysFontCnvSz(sz) (sz/24)
+
+#define NUMBER_PI 3.14159265359f
 #define FONT_SIZE_18 0.72f
 #define FONT_SIZE_17 0.7f
 #define FONT_SIZE_15 0.6f
@@ -59,9 +59,10 @@ namespace Gui {
 	C3D_RenderTarget* target(gfxScreen_t t);
 
 	void clearTextBufs(void);
-	void gcls(C3D_RenderTarget * screen, u32 color);
-	void sprite(int key, int x, int y, float sx = 1, float sy = 1);
-	void spriteTinted(int key, int x, int y, float sx = 1, float sy = 1, u32 color = 0xffffffff, float tintstrength = 1.0f);
+	void gcls(C3D_RenderTarget* screen, u32 color);
+	void sprite(C2D_SpriteSheet* sheet, int key, int x, int y, float sx, float sy);
+	void spriteTinted(C2D_SpriteSheet* sheet, int key, int x, int y, float sx, float sy, u32 color, float tintstrength);
+	void spriteWithTint(C2D_SpriteSheet* sheet, int key, int x, int y, float sx, float sy, C2D_ImageTint tint);
 	void ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch);
 	void _3dsAppletEvent(void);
 }
@@ -87,6 +88,7 @@ namespace Gui {
 	float _1ddist(float x0,float x1);
 	float _2ddist(float x0,float y0,float x1, float y1);
 	float clamp(float num, float low, float high);
+	bool TouchedHitbox(bool tt, u32 tx, u32 ty, u32 x, u32 y, u32 w, u32 h);
 	extern float fadea;
 	extern u8 fader;
 	extern u8 fadeg;
