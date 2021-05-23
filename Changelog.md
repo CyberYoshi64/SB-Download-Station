@@ -1,13 +1,27 @@
 # Changelog for SmileBASIC Download Station
 
-## 1/13/2021 - v0.1.0 ß1 - GUI remaster
+## 1/13/2021 - v0.1.0 - App remaster (not ready for Releases)
 
 * GUI is now revamped and running independently of the rest of the app
+* Added dialog boxes
+  * Can have 0-2 buttons
+  * Can wait for a shared boolean to be flipped by a background thread
+    * If 1 or 2 buttons are included, background thread can be informed by setting a shared boolean and stopped prematurely
+* Currently no features
+* Remade graphic assets
+* Added functions, like `countThreads()`, `TouchedHitbox()` and `DrawStrCC()`, as well as `SysFontCnvSz()` and `NUMBER_PI`
 
-## 10/28/2020 - v0.0.4 - Downloader and injecter update
+> ### Planning on:
+> * Reimplementing back-end [obvious]
+> * Adding custom error applet. See [this mock-up image](https://cdn.discordapp.com/attachments/163074261903343616/822824355142434816/cy64error-mock1.png)
+> * Reimplementing languages with "language packs"
+> * Use some kind of BCLYT-like layout framework
 
-* Updated wait icon to be a spinning circle
-* The downloader has finally been done, which will automatically put the files into SmileBASIC.
+## 10/28/2020 - v0.0.4 - Downloader and injector update
+
+* Updated graphic assets
+* The downloader has been completed, which will inject projects into SmileBASIC.
+* Reinstated curl-based downloader code
 
 ## 9/15/2020 - v0.0.3 - Download menu beginning update
 
@@ -17,8 +31,8 @@
 
 ## 9/13/2020 - v0.0.2 - Main menu update
 
-* Added main menu with 3 buttons (2 of them don't work lol)
-* Added update system (which downloads the 3DSX and CIA from here)
+* Added main menu
+* Added update system (which downloads the 3DSX and CIA from the Releases page)
 
 ## 9/12/2020 - v0.0.1 - Initial start of this project
 
