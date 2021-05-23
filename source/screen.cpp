@@ -170,7 +170,7 @@ void BotScr(){
 	Gui::sprite(&gfx_scrbg,scrbg_bottom_idx, 0, 0, 1, 1);
 	Gui::sprite(&gfx_common,common_ic_div_m_idx, 0, 48, 1, 1);
 	Gui::sprite(&gfx_common,common_ic_textbody_idx, 24, 60, 0.8, 1);
-	DrawStrBoxC(160, 24, FONT_SIZE_11, -1, "Warning!\n\nThis version of SmileBASIC Download Station\nis currently just a dummy and will not do\nanything.\n\nlmao.\n\n\n\nSorry for the inconvenience.", 240, 1.2f);
+	DrawStrBoxC(160, 24, FONT_SIZE_11, -1, "Warning!\n\nThis version of SmileBASIC Download Station\nis currently just a dummy and will not do\nanything. lmao.\n\n\uE000: Dialog test\u3000\u3000\uE001/\uE002: Notification test\n\uE006: Top screen heading & body test\n\nSorry for the inconvenience.", 240, 1.2f);
 }
 
 void Screen::Thread(){

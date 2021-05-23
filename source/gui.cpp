@@ -34,6 +34,10 @@ char stringtochar_buf[8192];
 C2D_TextBuf sizeBuf;
 C2D_Font systemFont;
 int CFGLang;
+extern bool wifiConnected;
+extern bool batBelow0c;
+extern bool batBelow1c;
+extern bool batCharge;
 extern u64 topNotificationTimer;
 extern u8 topNotificationSfx;
 extern u32 topNotificationColor;
@@ -282,7 +286,7 @@ void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
 	}
 	if (hDown & KEY_A){
 		Dialog::Clear();
-		Dialog::MainWGiven("This is a test dialog.\n\nPress \uE000 or touch the \"Okay\" button to close it.");
+		Dialog::MainWGiven("This is a test dialog.\n\nPress \uE000 or touch the \"Okay\" button to close it.\nPress \uE001 to exit this application.");
 		Dialog::UseAButtonWGiven("Okay");
 		Dialog::UseBButtonWGiven("Cancel");
 		Dialog::PrepareDisplay();
@@ -294,21 +298,30 @@ void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
 			Dialog::UseAButtonWGiven("button only (\uE001 not available)");
 			Dialog::PrepareDisplay();
 			Init::WarningSound();
-			dlgResult=Dialog::Show();
+			Dialog::Show();
 			Dialog::Clear();
-			Dialog::MainWGiven("1\n2\n3\n4\n5\n6");
+			Dialog::MainWGiven("1\n2\n3\n4\n5\n6\n7");
 			Dialog::UseBButtonWGiven("Close");
 			Dialog::PrepareDisplay();
 			Init::ErrorSound();
-			dlgResult=Dialog::Show();
-			Dialog::Clear();
-			Dialog::WaitForBool(&stopScreenUpdate, true);
-			Dialog::MainWGiven("Please wait...");
-			Dialog::PrepareDisplay();
 			Dialog::Show();
+			Dialog::Clear();
+			Dialog::WaitForBool(&batCharge, true);
+			Dialog::MainWGiven("Please insert the AC adapter.\n\nProceeding with a low battery level is not allowed.");
+			Dialog::UseBButtonWGiven("Close");
+			Dialog::PrepareDisplay();
+			dlgResult=Dialog::Show();
+			if (dlgResult==0){
+				Dialog::Clear();
+				Dialog::MainWGiven("Download aborted.\n\nSome files may not have been downloaded, which may cause the project to fail booting.");
+				Dialog::UseAButtonWGiven("Okay");
+				Dialog::PrepareDisplay();
+				Dialog::Show();
+
+			}
 		} else {
 			Dialog::Clear();
-			Dialog::MainWGiven("Do you want to exit SmileBASIC Download Station?");
+			Dialog::MainWGiven("Do you want to exit SmileBASIC Download Station?\n\n(Any current downloads will be aborted.)");
 			Dialog::UseAButtonWGiven("Yes");
 			Dialog::UseBButtonWGiven("No");
 			Dialog::PrepareDisplay();
@@ -319,9 +332,9 @@ void Gui::ScreenLogic(u32 hDown, u32 hHeld, touchPosition touch){
 	}
 	if (hDown & KEY_X){
 		topNotificationTimer = 180;
-		topNotificationColor = 0xFF4000FF;
-		topNotificationText = "Please start charging your console!";
-		Init::ErrorSound();
+		topNotificationColor = 0x00CCCCFF;
+		topNotificationText = "Some dummy notification with a long text. TBH I don't know lol.";
+		Init::WrongSound();
 	}
 	
 	if (hDown & KEY_DOWN){

@@ -48,14 +48,12 @@ void Dialog::UseBButtonWithID(u32 id){
 	dialogBbtn="ID not found"; dialogBbtnf=true;
 }
 void Dialog::PrepareDisplay(){
-	u8 vecidx=0; bool forceLB = false; bool forcedLB=false;
+	u8 vecidx=0; bool forceLB = false;
 	std::string subs="",osbs=""; size_t i=0,j=0;
 	dialogAbtn="\uE000 "+dialogAbtn; dialogBbtn="\uE001 "+dialogBbtn;
-	dialogBodyText.push_back("");
+	dialogBodyText.push_back(""); dialogMainString+=' ';
 	for (i=0; i < dialogMainString.length(); i++){
-		forcedLB=forceLB;
-		osbs=subs;
-		if (subs != "") subs += ' ';
+		osbs=subs; if (subs != "") subs += ' ';
 		for (j=i; j < dialogMainString.length(); j++){
 			if (dialogMainString[j] == ' '){
 				break;
@@ -65,13 +63,13 @@ void Dialog::PrepareDisplay(){
 				subs += dialogMainString[j];
 			}
 		}
-		if (j >= dialogMainString.length()) break;
-		if(Draw_GetTextWidth(0.65f, subs.c_str()) > 232.0f && !forceLB) {subs=osbs; forceLB=1; i--;} else {i=j;}
+		if(Draw_GetTextWidth(0.6f, subs.c_str()) > 240.0f && !forceLB) {subs=osbs; forceLB=1; i--;} else {i=j;if (j >= dialogMainString.length()) break;}
 		if (forceLB){
 			dialogBodyText[vecidx]=subs;
 			vecidx++; subs=""; forceLB=false;
 			dialogBodyText.push_back("");
 		}
+		if (j >= dialogMainString.length()) break;
 	}
 	if (subs != ""){
 		dialogBodyText[vecidx]=subs;
@@ -129,10 +127,8 @@ u8 Dialog::Show(){
 					A_btn_acknowledge = true;
 				}
 			}
-		} else {
-			if (!dialogWaitingForBool || (dialogWaitingForBool && (*dialogWaitForThisBool == dialogWaitForBoolFlag))) dialogRes=2;
-			if (dialogRes!=255) Init::StopDlgWaitSound();
 		}
+		if (dialogWaitingForBool && (*dialogWaitForThisBool == dialogWaitForBoolFlag)) {dialogRes=2; Init::StopDlgWaitSound();}
 		if (stopScreenUpdate && !aptShouldJumpToHome()){
 			stopScreenUpdate=false;
 			createThread((ThreadFunc)Screen::Thread);
@@ -143,7 +139,7 @@ u8 Dialog::Show(){
 			break;
 		gspWaitForVBlank();
 	}
-	dialogShown=false;
+	dialogShown=false; Init::StopDlgWaitSound();
 	return dialogRes;
 }
 void Dialog::Display(){
@@ -156,9 +152,9 @@ void Dialog::Display(){
 	param.center.x = 160.0f*dialogVisualScale; param.center.y = 120.0f*dialogVisualScale;
 	param.angle = 0; param.depth = 0.5f;
 	C2D_DrawImage(C2D_SpriteSheetGetImage(gfx_appdlg, appdlg_ic_dlg_body_idx), &param, &dialogdeftint);
-	genericvar0 = ((120.0f - 20.0f * dialogVisualScale) - ((11.0f * dialogBodyText.size()) * dialogVisualScale));
+	genericvar0 = ((120.0f - (20.0f + 10.0f * ((dialogAbtnf||dialogBbtnf)&&dialogWaitingForBool)) * dialogVisualScale) - ((10.0f * dialogBodyText.size()) * dialogVisualScale));
 	for(u32 i=0; i < dialogBodyText.size(); i++){
-		Draw_Text_Center(160.0f, genericvar0 + (i * (22.0f * dialogVisualScale)), 0.55f*dialogVisualScale, C2D_Color32f(1,1,1,dialogVisualOpacity), dialogBodyText[i].c_str());
+		Draw_Text_Center(160.0f, genericvar0 + (i * (20.0f * dialogVisualScale)), 0.6f*dialogVisualScale, C2D_Color32f(1,1,1,dialogVisualOpacity), dialogBodyText[i].c_str());
 	}
 	if (dialogAbtnf != dialogBbtnf) {
 		if (dialogAbtnf){genbool=dialogAbtnPress;}else{genbool=dialogBbtnPress;}
@@ -170,11 +166,11 @@ void Dialog::Display(){
 		C2D_TopImageTint(&dialogdeftint, C2D_Color32f(genericvar0,genericvar0,genericvar0,dialogVisualOpacity), 1.0f);
 		C2D_DrawImage(C2D_SpriteSheetGetImage(gfx_appdlg, appdlg_ic_dlg_btn_idx), &param, &dialogdeftint);
 		if (dialogAbtnf){
-			DrawStrBoxC(160, 120.0f + 64.5f * dialogVisualScale, 0.65f*dialogVisualScale, C2D_Color32f(!genbool,!genbool,!genbool,dialogVisualOpacity * 0.75f),dialogAbtn.c_str(),232.0f*dialogVisualScale,dialogVisualScale);
-			DrawStrBoxC(160, 120.0f + 63.0f * dialogVisualScale, 0.65f*dialogVisualScale, C2D_Color32f(genbool,genbool,genbool,dialogVisualOpacity * 0.75f),dialogAbtn.c_str(),232.0f*dialogVisualScale,dialogVisualScale);
+			DrawStrBoxC(160, 120.0f + 62.5f * dialogVisualScale, 0.7f*dialogVisualScale, C2D_Color32f(!genbool,!genbool,!genbool,dialogVisualOpacity * 0.75f),dialogAbtn.c_str(),232.0f*dialogVisualScale,dialogVisualScale);
+			DrawStrBoxC(160, 120.0f + 61.0f * dialogVisualScale, 0.7f*dialogVisualScale, C2D_Color32f(genbool,genbool,genbool,dialogVisualOpacity * 0.75f),dialogAbtn.c_str(),232.0f*dialogVisualScale,dialogVisualScale);
 		} else {
-			DrawStrBoxC(160, 120.0f + 64.5f * dialogVisualScale, 0.65f*dialogVisualScale, C2D_Color32f(!genbool,!genbool,!genbool,dialogVisualOpacity * 0.75f),dialogBbtn.c_str(),232.0f*dialogVisualScale,dialogVisualScale);
-			DrawStrBoxC(160, 120.0f + 63.0f * dialogVisualScale, 0.65f*dialogVisualScale, C2D_Color32f(genbool,genbool,genbool,dialogVisualOpacity * 0.75f),dialogBbtn.c_str(),232.0f*dialogVisualScale,dialogVisualScale);
+			DrawStrBoxC(160, 120.0f + 62.5f * dialogVisualScale, 0.7f*dialogVisualScale, C2D_Color32f(!genbool,!genbool,!genbool,dialogVisualOpacity * 0.75f),dialogBbtn.c_str(),232.0f*dialogVisualScale,dialogVisualScale);
+			DrawStrBoxC(160, 120.0f + 61.0f * dialogVisualScale, 0.7f*dialogVisualScale, C2D_Color32f(genbool,genbool,genbool,dialogVisualOpacity * 0.75f),dialogBbtn.c_str(),232.0f*dialogVisualScale,dialogVisualScale);
 		}
 	} else if (dialogAbtnf == 1) {
 		param.pos.x = 160.0f; param.pos.y = 120.0f + 52.0f * dialogVisualScale;
@@ -184,8 +180,8 @@ void Dialog::Display(){
 		C2D_PlainImageTint(&dialogdeftint, C2D_Color32f(0.4f,0.4f,0.4f,dialogVisualOpacity), 1.0f);
 		C2D_TopImageTint(&dialogdeftint, C2D_Color32f(genericvar0,genericvar0,genericvar0,dialogVisualOpacity), 1.0f);
 		C2D_DrawImage(C2D_SpriteSheetGetImage(gfx_appdlg, appdlg_ic_dlg_btn_l_idx), &param, &dialogdeftint);
-		DrawStrBoxC(160.0f - 64.0f * dialogVisualScale, 120.0f + 64.5f * dialogVisualScale, 0.65f*dialogVisualScale, C2D_Color32f(!dialogBbtnPress,!dialogBbtnPress,!dialogBbtnPress,dialogVisualOpacity * 0.75f),dialogBbtn.c_str(),112.0f*dialogVisualScale,dialogVisualScale);
-		DrawStrBoxC(160.0f - 64.0f * dialogVisualScale, 120.0f + 63.0f * dialogVisualScale, 0.65f*dialogVisualScale, C2D_Color32f(dialogBbtnPress,dialogBbtnPress,dialogBbtnPress,dialogVisualOpacity * 0.75f),dialogBbtn.c_str(),112.0f*dialogVisualScale,dialogVisualScale);
+		DrawStrBoxC(160.0f - 64.0f * dialogVisualScale, 120.0f + 62.5f * dialogVisualScale, 0.7f*dialogVisualScale, C2D_Color32f(!dialogBbtnPress,!dialogBbtnPress,!dialogBbtnPress,dialogVisualOpacity * 0.75f),dialogBbtn.c_str(),112.0f*dialogVisualScale,dialogVisualScale);
+		DrawStrBoxC(160.0f - 64.0f * dialogVisualScale, 120.0f + 61.0f * dialogVisualScale, 0.7f*dialogVisualScale, C2D_Color32f(dialogBbtnPress,dialogBbtnPress,dialogBbtnPress,dialogVisualOpacity * 0.75f),dialogBbtn.c_str(),112.0f*dialogVisualScale,dialogVisualScale);
 		param.pos.x = 160.0f; param.pos.y = 120.0f + 52.0f * dialogVisualScale;
 		param.pos.w = 128*dialogVisualScale; param.pos.h = 44*dialogVisualScale;
 		param.center.x = 0.0f; param.center.y = 0.0f;
@@ -193,22 +189,23 @@ void Dialog::Display(){
 		C2D_PlainImageTint(&dialogdeftint, C2D_Color32f(0.4f,0.4f,0.4f,dialogVisualOpacity), 1.0f);
 		C2D_TopImageTint(&dialogdeftint, C2D_Color32f(genericvar0,genericvar0,genericvar0,dialogVisualOpacity), 1.0f);
 		C2D_DrawImage(C2D_SpriteSheetGetImage(gfx_appdlg, appdlg_ic_dlg_btn_r_idx), &param, &dialogdeftint);
-		DrawStrBoxC(160.0f + 64.0f * dialogVisualScale, 120.0f + 64.5f * dialogVisualScale, 0.65f*dialogVisualScale, C2D_Color32f(!dialogAbtnPress,!dialogAbtnPress,!dialogAbtnPress,dialogVisualOpacity * 0.75f),dialogAbtn.c_str(),112.0f*dialogVisualScale,dialogVisualScale);
-		DrawStrBoxC(160.0f + 64.0f * dialogVisualScale, 120.0f + 63.0f * dialogVisualScale, 0.65f*dialogVisualScale, C2D_Color32f(dialogAbtnPress,dialogAbtnPress,dialogAbtnPress,dialogVisualOpacity * 0.75f),dialogAbtn.c_str(),112.0f*dialogVisualScale,dialogVisualScale);
+		DrawStrBoxC(160.0f + 64.0f * dialogVisualScale, 120.0f + 62.5f * dialogVisualScale, 0.7f*dialogVisualScale, C2D_Color32f(!dialogAbtnPress,!dialogAbtnPress,!dialogAbtnPress,dialogVisualOpacity * 0.75f),dialogAbtn.c_str(),112.0f*dialogVisualScale,dialogVisualScale);
+		DrawStrBoxC(160.0f + 64.0f * dialogVisualScale, 120.0f + 61.0f * dialogVisualScale, 0.7f*dialogVisualScale, C2D_Color32f(dialogAbtnPress,dialogAbtnPress,dialogAbtnPress,dialogVisualOpacity * 0.75f),dialogAbtn.c_str(),112.0f*dialogVisualScale,dialogVisualScale);
 		param.pos.x = 160.0f; param.pos.y = 120.0f + 52.0f * dialogVisualScale;
 		param.pos.w = 4*dialogVisualScale; param.pos.h = 44*dialogVisualScale;
 		param.center.x = 2.0f; param.center.y = 0.0f; param.angle = 0; param.depth = 0.5f;
 		C2D_PlainImageTint(&dialogdeftint, C2D_Color32f(1,1,1,dialogVisualOpacity), 0.0f);
 		C2D_DrawImage(C2D_SpriteSheetGetImage(gfx_appdlg, appdlg_ic_dlg_btn_div_idx), &param, &dialogdeftint);
-	} else {
-		dialogWaitSpin += NUMBER_PI/16.0f;
+	}
+	if (dialogWaitingForBool){
+		dialogWaitSpin += NUMBER_PI/16.0f; genericvar0=(dialogAbtnf||dialogBbtnf)*16.0f;
 		if(dialogWaitSpin > NUMBER_PI*2.0f) dialogWaitSpin -= NUMBER_PI*2.0f;
-		param.pos.x = 160.0f; param.pos.y = 120.0f + 52.0f * dialogVisualScale;
+		param.pos.x = 160.0f; param.pos.y = 120.0f + (52.0f - genericvar0) * dialogVisualScale;
 		param.pos.w = 24*dialogVisualScale; param.pos.h = 24*dialogVisualScale;
 		param.center.x = 12.0f; param.center.y = 12.0f; param.angle = 0; param.depth = 0.5f;
 		C2D_PlainImageTint(&dialogdeftint, C2D_Color32f(0,0.5f,0.35f,dialogVisualOpacity), 1.0f);
 		C2D_DrawImage(C2D_SpriteSheetGetImage(gfx_common, common_waiticon_bg_idx), &param, &dialogdeftint);
-		param.pos.x = 160.0f; param.pos.y = 120.0f + 52.0f * dialogVisualScale;
+		param.pos.x = 160.0f; param.pos.y = 120.0f + (52.0f - genericvar0) * dialogVisualScale;
 		param.pos.w = 24*dialogVisualScale; param.pos.h = 24*dialogVisualScale;
 		param.center.x = 12.0f; param.center.y = 12.0f; param.depth = 0.5f; param.angle = dialogWaitSpin;
 		C2D_PlainImageTint(&dialogdeftint, C2D_Color32f(0,1,0.7f,dialogVisualOpacity), 1.0f);
